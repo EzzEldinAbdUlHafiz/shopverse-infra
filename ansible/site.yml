@@ -1,0 +1,11 @@
+---
+- hosts: jump_servers
+  become: yes
+  roles:
+    - jump
+    - argocd
+
+- hosts: jenkins_servers
+  become: yes
+  roles:
+    - jenkins

@@ -1,0 +1,99 @@
+---
+- name: Fetch GitHub token from AWS Secrets Manager
+  set_fact:
+    github_token: "{{ lookup('amazon.aws.secretsmanager_secret', github_token_secret_id) }}"
+  no_log: true
+
+- name: Clean up old repositories
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/apt/sources.list.d/jenkins.list
+    - /etc/apt/sources.list.d/trivy.list
+
+- name: Install Basic Prerequisites
+  shell: apt-get update && apt-get install -y wget unzip curl gnupg
+  args:
+    creates: /usr/bin/unzip
+
+- name: Add Jenkins GPG Key
+  shell: |
+    mkdir -p /etc/apt/keyrings
+    wget -O /etc/apt/keyrings/jenkins-keyring.asc https://pkg.jenkins.io/debian-stable/jenkins.io-2026.key
+
+- name: Add Jenkins Repository
+  shell: echo "deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/" > /etc/apt/sources.list.d/jenkins.list
+
+- name: Install Java 21
+  apt:
+    name: openjdk-21-jre-headless
+    state: present
+    update_cache: yes
+
+- name: Install Docker CE
+  shell: curl -fsSL https://get.docker.com | sh
+  args:
+    creates: /usr/bin/docker
+
+- name: Ensure Docker service is running
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Install Jenkins
+  shell: apt-get update && apt-get install -y jenkins
+  args:
+    creates: /usr/share/jenkins/jenkins.war
+
+- name: Install Kubernetes Tools (kubectl, helm)
+  shell: |
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    chmod +x kubectl
+    mv kubectl /usr/local/bin/
+    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  args:
+    creates: /usr/local/bin/kubectl
+
+- name: Install Trivy
+  shell: |
+    wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | tee /usr/share/keyrings/trivy.gpg > /dev/null
+    echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | tee /etc/apt/sources.list.d/trivy.list
+    apt-get update
+    apt-get install -y trivy
+  args:
+    creates: /usr/bin/trivy
+
+- name: Install AWS CLI
+  shell: |
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip awscliv2.zip
+    sudo ./aws/install --update-command-system-wide
+  args:
+    creates: /usr/local/bin/aws
+
+- name: Setup Trivy Cache Directory
+  file:
+    path: /var/cache/trivy
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: '0755'
+  notify: setup_trivy_cache
+
+- name: Deploy Jenkins Configuration as Code (JCasC)
+  template:
+    src: jenkins.yaml.j2
+    dest: /var/lib/jenkins/jenkins.yaml
+  notify: restart jenkins
+
+- name: Register Jenkins URL in SSM Parameter Store
+  # The ssm_parameter *module* lives in community.aws (amazon.aws only has the
+  # lookup plugin of the same name).
+  community.aws.ssm_parameter:
+    name: "/shopverse/jenkins_url"
+    value: "http://{{ ansible_host }}:8080"
+    type: "String"
+    overwrite: true
+  delegate_to: localhost

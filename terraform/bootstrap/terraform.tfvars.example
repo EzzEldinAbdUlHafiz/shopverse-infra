@@ -1,0 +1,18 @@
+project_name      = "shopverse"
+aws_region        = "us-east-1"
+vpc_cidr          = "10.0.0.0/16"
+ecr_repos         = ["frontend", "backend"]
+github_org        = "EzzEldinAbdUlHafiz"
+github_repo_infra = "shopverse-infra"
+github_repo_app   = "shopverse-app"
+github_repo_gitops = "shopverse-gitops"
+github_branch     = "main"
+
+jenkins_instance_type = "m7i-flex.large"
+jenkins_ami_id      = "ami-05cf1e9f73fbad2e2"
+
+tags = {
+  Project     = "shopverse"
+  Environment = "bootstrap"
+  ManagedBy   = "terraform"
+}

@@ -1,0 +1,20 @@
+plugin: aws_ec2
+region: us-east-1
+
+# Filters must be a dictionary, not a list
+filters:
+  tag:Role:
+    - jump-server
+    - jenkins-server
+
+# Map tags to Ansible groups using Jinja2 conditionals
+groups:
+  jump_servers: tags.Role == 'jump-server'
+  jenkins_servers: tags.Role == 'jenkins-server'
+
+# Jump server is public, Jenkins is private — use the correct IP for each.
+# The SSH bastion (ProxyJump) for the private Jenkins host is configured in
+# group_vars/jenkins_servers.yml, which is the right place for per-group
+# connection settings.
+compose:
+  ansible_host: public_ip_address if tags.Role == 'jump-server' else private_ip_address

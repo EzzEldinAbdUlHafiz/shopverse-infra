@@ -1,0 +1,53 @@
+---
+- name: Ensure kubeconfig directory exists
+  ansible.builtin.file:
+    path: "{{ eks_kubeconfig | dirname }}"
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+
+- name: Update kubeconfig for EKS cluster
+  ansible.builtin.command:
+    cmd: >
+      aws eks update-kubeconfig
+      --region {{ aws_region }}
+      --name {{ eks_cluster_name }}
+      --kubeconfig {{ eks_kubeconfig }}
+  changed_when: true
+  become_user: ubuntu
+
+- name: Download ArgoCD manifest
+  ansible.builtin.get_url:
+    url: "{{ argocd_manifest_url }}"
+    dest: "{{ argocd_manifest_dest }}"
+    mode: '0644'
+
+- name: Create ArgoCD namespace
+  kubernetes.core.k8s:
+    name: argocd
+    api_version: v1
+    kind: Namespace
+    state: present
+    kubeconfig: "{{ eks_kubeconfig }}"
+
+- name: Apply ArgoCD manifest
+  ansible.builtin.shell:
+    cmd: "kubectl apply -n {{ argocd_namespace }} --server-side --force-conflicts -f {{ argocd_manifest_dest }}"
+  environment:
+    KUBECONFIG: "{{ eks_kubeconfig }}"
+  changed_when: true
+
+- name: Wait for ArgoCD server deployment to be ready
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: argocd-server
+    namespace: argocd
+    kubeconfig: "{{ eks_kubeconfig }}"
+  register: argocd_deployment
+  until: >
+    argocd_deployment.resources | length > 0 and
+    argocd_deployment.resources[0].status.readyReplicas is defined and
+    argocd_deployment.resources[0].status.readyReplicas >= 1
+  retries: 20
+  delay: 15
