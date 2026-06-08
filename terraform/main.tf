@@ -76,6 +76,26 @@ resource "aws_eks_access_policy_association" "bastion_admin" {
 }
 
 # ──────────────────────────────────────────────
+# EKS Access — Bastion to Cluster API
+# ──────────────────────────────────────────────
+data "aws_security_group" "bastion" {
+  filter {
+    name   = "tag:Name"
+    values = ["${var.project_name}-bastion-sg"]
+  }
+}
+
+resource "aws_security_group_rule" "eks_from_bastion" {
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = module.eks.eks_managed_security_group_id
+  source_security_group_id = data.aws_security_group.bastion.id
+  description              = "Bastion access to EKS API server"
+}
+
+# ──────────────────────────────────────────────
 # RDS Module
 # ──────────────────────────────────────────────
 module "rds" {
