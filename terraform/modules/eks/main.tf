@@ -56,21 +56,13 @@ resource "aws_security_group" "nodes" {
   description = "EKS node security group"
   vpc_id      = var.vpc_id
 
-  # Node-to-node communication
+  # Node-to-node all traffic
   ingress {
-    from_port = 0
-    to_port   = 65535
-    protocol  = "tcp"
-    self      = true
-    description = "Node-to-node all ports"
-  }
-
-  ingress {
-    from_port = 0
-    to_port   = 65535
-    protocol  = "udp"
-    self      = true
-    description = "Node-to-node UDP (VXLAN, etc.)"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
+    description = "Node-to-node all traffic"
   }
 
   egress {
@@ -90,37 +82,26 @@ resource "aws_security_group" "nodes" {
   }
 }
 
-# Cluster SG allows inbound 443 from nodes (API server)
-resource "aws_security_group_rule" "cluster_ingress_nodes_443" {
+# Cluster SG allows ALL traffic from Node SG
+resource "aws_security_group_rule" "cluster_ingress_nodes" {
   type                     = "ingress"
-  from_port                = 443
-  to_port                  = 443
-  protocol                 = "tcp"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
   security_group_id        = aws_security_group.cluster.id
   source_security_group_id = aws_security_group.nodes.id
-  description              = "Nodes to EKS API server"
+  description              = "All traffic from nodes to cluster"
 }
 
-# Cluster SG allows inbound 1025-65535 from nodes (kubelet)
-resource "aws_security_group_rule" "cluster_ingress_nodes_kubelet" {
-  type                     = "ingress"
-  from_port                = 1025
-  to_port                  = 65535
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.cluster.id
-  source_security_group_id = aws_security_group.nodes.id
-  description              = "Nodes to cluster control plane (kubelet)"
-}
-
-# Nodes SG allows inbound 1025-65535 from cluster (control plane to kubelet)
+# Node SG allows ALL traffic from Cluster SG
 resource "aws_security_group_rule" "nodes_ingress_cluster" {
   type                     = "ingress"
-  from_port                = 1025
-  to_port                  = 65535
-  protocol                 = "tcp"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
   security_group_id        = aws_security_group.nodes.id
   source_security_group_id = aws_security_group.cluster.id
-  description              = "Cluster control plane to node kubelets"
+  description              = "All traffic from cluster to nodes"
 }
 
 # ──────────────────────────────────────────────
@@ -201,12 +182,23 @@ resource "aws_launch_template" "eks_nodes" {
   image_id      = data.aws_ssm_parameter.eks_ami.value
   instance_type = var.node_instance_type
 
-  network_interfaces {
-    security_groups = [aws_security_group.nodes.id]
+  vpc_security_group_ids = [aws_security_group.nodes.id]
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
   }
 
   tag_specifications {
     resource_type = "instance"
+    tags = merge(var.tags, {
+      Name = "${var.cluster_name}-nodes"
+    })
+  }
+
+  tag_specifications {
+    resource_type = "volume"
     tags = merge(var.tags, {
       Name = "${var.cluster_name}-nodes"
     })
@@ -219,7 +211,6 @@ resource "aws_launch_template" "eks_nodes" {
 resource "aws_eks_node_group" "this" {
   cluster_name    = aws_eks_cluster.this.name
   node_group_name = "${var.cluster_name}-nodes"
-  # version intentionally omitted — conflicts with launch_template image_id
   node_role_arn   = aws_iam_role.nodes.arn
   subnet_ids      = var.private_subnet_ids
 
@@ -242,6 +233,8 @@ resource "aws_eks_node_group" "this" {
     aws_iam_role_policy_attachment.node_worker_policy,
     aws_iam_role_policy_attachment.node_cni_policy,
     aws_iam_role_policy_attachment.node_container_registry,
+    aws_security_group_rule.cluster_ingress_nodes,
+    aws_security_group_rule.nodes_ingress_cluster,
   ]
 
   tags = merge(var.tags, {
