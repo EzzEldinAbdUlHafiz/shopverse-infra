@@ -63,7 +63,7 @@ resource "aws_subnet" "private" {
   count = length(local.azs)
 
   vpc_id            = local.vpc_id
-  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 10)
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 32)
   availability_zone = local.azs[count.index]
 
   tags = merge(var.tags, {
