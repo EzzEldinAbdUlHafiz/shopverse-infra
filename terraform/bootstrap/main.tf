@@ -15,8 +15,124 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 data "aws_availability_zones" "available" {}
 
-data "aws_iam_openid_connect_provider" "github" {
-  url = "https://token.actions.githubusercontent.com"
+# ── OIDC Provider (Layer 0 — created by local bootstrap) ──
+resource "aws_iam_openid_connect_provider" "github" {
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = ["6938fd4d98facea3a16e3e223884a23d34f3395a"]
+
+  tags = merge(var.tags, {
+    Name = "${var.project_name}-github-oidc"
+  })
+}
+
+# ── Bootstrap Permission Boundary ──
+resource "aws_iam_policy" "bootstrap_boundary" {
+  name        = "${var.project_name}-bootstrap-permission-boundary"
+  description = "Permission boundary for the GitHub Actions bootstrap role"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowBootstrapScope"
+        Effect = "Allow"
+        Action = [
+          "s3:*", "ecr:*", "ec2:*", "iam:*", "elasticloadbalancing:*",
+          "cloudwatch:*", "logs:*", "kms:*", "eks:*", "rds:*", "ssm:*",
+          "autoscaling:*", "vpc:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "DenyBoundaryTampering"
+        Effect = "Deny"
+        Action = [
+          "iam:DeleteRolePermissionsBoundary",
+          "iam:PutRolePermissionsBoundary"
+        ]
+        Resource = "*"
+        Condition = {
+          StringNotEquals = {
+            "iam:PermissionsBoundary" = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/${var.project_name}-bootstrap-permission-boundary"
+          }
+        }
+      },
+      {
+        Sid    = "DenyPrivilegeEscalation"
+        Effect = "Deny"
+        Action = [
+          "iam:CreateAccessKey",
+          "iam:CreateAccountAlias",
+          "iam:UpdateAssumeRolePolicy",
+          "iam:AttachUserPolicy"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+# ── Bootstrap Role ──
+resource "aws_iam_role" "github_bootstrap" {
+  name = "${var.project_name}-github-bootstrap-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Federated = aws_iam_openid_connect_provider.github.arn
+      }
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}/${var.github_repo_infra}:ref:refs/heads/${var.github_branch}"
+        }
+      }
+    }]
+  })
+
+  permissions_boundary = aws_iam_policy.bootstrap_boundary.arn
+
+  tags = var.tags
+}
+
+# ── Bootstrap Permissions Policy ──
+resource "aws_iam_policy" "bootstrap_permissions" {
+  name        = "${var.project_name}-bootstrap-policy"
+  description = "Permissions for GitHub Actions bootstrap and main infrastructure"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "TerraformBootstrapAndMain"
+        Effect = "Allow"
+        Action = [
+          "s3:*", "ecr:*", "ec2:*", "iam:*", "elasticloadbalancing:*",
+          "cloudwatch:*", "logs:*", "kms:*", "eks:*", "rds:*", "ssm:*",
+          "autoscaling:*", "vpc:*"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = var.aws_region
+          }
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "github_bootstrap" {
+  role       = aws_iam_role.github_bootstrap.name
+  policy_arn = aws_iam_policy.bootstrap_permissions.arn
 }
 
 # ── S3 State Bucket ──
@@ -251,12 +367,12 @@ resource "aws_iam_role" "github_app" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = data.aws_iam_openid_connect_provider.github.arn
+          Federated = aws_iam_openid_connect_provider.github.arn
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
           StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com",
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
             "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}/${var.github_repo_app}:ref:refs/heads/${var.github_branch}"
           }
         }

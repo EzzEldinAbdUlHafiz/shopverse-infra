@@ -23,6 +23,11 @@ output "bastion_instance_id" {
   value = aws_instance.bastion.id
 }
 
+output "bootstrap_role_arn" {
+  description = "ARN of the GitHub Actions bootstrap role"
+  value       = aws_iam_role.github_bootstrap.arn
+}
+
 output "github_app_role_arn" {
   value = aws_iam_role.github_app.arn
 }
