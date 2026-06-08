@@ -1,0 +1,10 @@
+project_name       = "shopverse"
+aws_region         = "us-east-1"
+cluster_name       = "shopverse-cluster"
+vpc_cidr           = "10.0.0.0/16"
+db_username        = "admin"
+db_name            = "shopverse"
+node_instance_type = "m7i-flex.large"
+node_desired_size  = 2
+node_min_size      = 1
+node_max_size      = 4

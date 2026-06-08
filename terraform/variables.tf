@@ -1,8 +1,3 @@
-variable "key_name" {
-  description = "The name of the AWS key pair to use for the jump server"
-  type        = string
-}
-
 # ──────────────────────────────────────────────
 # General
 # ──────────────────────────────────────────────
@@ -67,27 +62,6 @@ variable "node_max_size" {
 }
 
 # ──────────────────────────────────────────────
-# Jump Server (EC2)
-# ──────────────────────────────────────────────
-variable "create_jump_server" {
-  description = "Whether to create an EC2 jump server"
-  type        = bool
-  default     = true
-}
-
-variable "jump_server_instance_type" {
-  description = "EC2 instance type for the jump server"
-  type        = string
-  default     = "t3.micro"
-}
-
-variable "jump_server_allowed_ssh_cidrs" {
-  description = "CIDR blocks allowed to SSH into the jump server"
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
-}
-
-# ──────────────────────────────────────────────
 # RDS
 # ──────────────────────────────────────────────
 variable "db_username" {
@@ -107,4 +81,3 @@ variable "db_name" {
   type        = string
   default     = "shopverse"
 }
-

@@ -161,30 +161,26 @@ resource "aws_security_group" "vpc_endpoints" {
 
 # S3 Gateway Endpoint
 resource "aws_vpc_endpoint" "s3" {
-  vpc_id       = aws_vpc.this.id
-  service_name = "com.amazonaws.${var.aws_region}.s3"
+  vpc_id            = aws_vpc.this.id
+  service_name      = "com.amazonaws.${var.aws_region}.s3"
   vpc_endpoint_type = "Gateway"
 
-  # Associate with public and private route tables
-  route_table_ids = concat(
-    [aws_route_table.public.id],
-    [aws_route_table.private.id]
-  )
+  route_table_ids = [
+    aws_route_table.public.id,
+    aws_route_table.private.id
+  ]
 
   tags = merge(var.tags, {
     Name = "${var.name}-vpc-endpoint-s3"
   })
 }
 
-# Interface Endpoints
+# Interface Endpoints (SSM removed — SSH-only access model)
 locals {
   interface_services = [
     "ecr.api",
     "ecr.dkr",
     "sts",
-    "ssm",
-    "ssmmessages",
-    "ec2messages",
     "logs"
   ]
 }
@@ -192,9 +188,9 @@ locals {
 resource "aws_vpc_endpoint" "interface" {
   for_each = toset(local.interface_services)
 
-  vpc_id            = aws_vpc.this.id
-  service_name      = "com.amazonaws.${var.aws_region}.${each.key}"
-  vpc_endpoint_type = "Interface"
+  vpc_id             = aws_vpc.this.id
+  service_name       = "com.amazonaws.${var.aws_region}.${each.key}"
+  vpc_endpoint_type  = "Interface"
 
   subnet_ids         = aws_subnet.private[*].id
   security_group_ids = [aws_security_group.vpc_endpoints.id]

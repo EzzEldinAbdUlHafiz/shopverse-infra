@@ -38,46 +38,30 @@ module "eks" {
 }
 
 # ──────────────────────────────────────────────
-# EKS Access Entry — jump server role
+# EKS Access Entry — Bastion (CI/CD bridge)
 # ──────────────────────────────────────────────
-resource "aws_eks_access_entry" "jump_server" {
+data "aws_iam_role" "bastion" {
+  name = "${var.project_name}-bastion-role"
+}
+
+resource "aws_eks_access_entry" "bastion" {
   cluster_name  = module.eks.cluster_name
-  principal_arn = module.jump_server[0].iam_role_arn
+  principal_arn = data.aws_iam_role.bastion.arn
   type          = "STANDARD"
 
   tags = local.common_tags
 }
 
-resource "aws_eks_access_policy_association" "jump_server_admin" {
+resource "aws_eks_access_policy_association" "bastion_admin" {
   cluster_name  = module.eks.cluster_name
-  principal_arn = module.jump_server[0].iam_role_arn
+  principal_arn = data.aws_iam_role.bastion.arn
   policy_arn    = "arn:aws:iam::aws:policy/AmazonEKSClusterAdminPolicy"
 
   access_scope {
     type = "cluster"
   }
 
-  depends_on = [aws_eks_access_entry.jump_server]
-}
-
-# ──────────────────────────────────────────────
-# EC2 Jump Server Module
-# ──────────────────────────────────────────────
-module "jump_server" {
-  source = "./modules/ec2"
-  count  = var.create_jump_server ? 1 : 0
-
-  name              = "${var.project_name}-jump-server"
-  vpc_id            = module.vpc.vpc_id
-  subnet_id         = module.vpc.private_subnet_ids[0] # Private subnet as per plan
-  instance_type     = var.jump_server_instance_type
-  cluster_name      = var.cluster_name
-  aws_region        = var.aws_region
-  role              = "human-access"
-  tags              = local.common_tags
-
-  # Base64 empty or minimal userdata for jump server
-  user_data_base64  = base64encode("#!/bin/bash\necho 'Jump server initialized'")
+  depends_on = [aws_eks_access_entry.bastion]
 }
 
 # ──────────────────────────────────────────────
@@ -97,6 +81,7 @@ module "rds" {
 
 # ──────────────────────────────────────────────
 # RDS Connectivity — EKS Nodes to RDS
+# Uses the cluster security group (attached to both control plane and nodes)
 # ──────────────────────────────────────────────
 resource "aws_security_group_rule" "rds_eks_ingress" {
   type                     = "ingress"
@@ -104,27 +89,5 @@ resource "aws_security_group_rule" "rds_eks_ingress" {
   to_port                  = 3306
   protocol                 = "tcp"
   security_group_id        = module.rds.rds_security_group_id
-  source_security_group_id = module.eks.node_security_group_id
-}
-
-# ──────────────────────────────────────────────
-# EKS Security Group — Jenkins access
-# ──────────────────────────────────────────────
-# Since Jenkins was created in Bootstrap phase, we need its Security Group ID.
-# We can find it by tag or use a data source.
-data "aws_security_group" "jenkins" {
-  filter {
-    name   = "group-name"
-    values = ["${var.project_name}-jenkins-sg"]
-  }
-}
-
-resource "aws_security_group_rule" "eks_from_jenkins" {
-  type                     = "ingress"
-  from_port                = 443
-  to_port                  = 443
-  protocol                 = "tcp"
-  security_group_id        = module.eks.cluster_security_group_id
-  source_security_group_id = data.aws_security_group.jenkins.id
-  description              = "Jenkins access to EKS API"
+  source_security_group_id = module.eks.cluster_security_group_id
 }

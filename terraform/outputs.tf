@@ -56,37 +56,6 @@ output "ebs_csi_role_arn" {
 }
 
 # ──────────────────────────────────────────────
-# Jump Server Outputs
-# ──────────────────────────────────────────────
-output "jump_server_public_ip" {
-  description = "Public IP of the jump server"
-  value       = var.create_jump_server ? module.jump_server[0].public_ip : null
-}
-
-output "jump_server_console_url" {
-  description = "AWS Console URL to connect to the jump server"
-  value       = var.create_jump_server ? module.jump_server[0].console_connect_url : null
-}
-
-output "jump_server_instance_id" {
-  description = "Instance ID of the jump server"
-  value       = var.create_jump_server ? module.jump_server[0].instance_id : null
-}
-
-# ──────────────────────────────────────────────
-# Jenkins Server Outputs
-# ──────────────────────────────────────────────
-output "jenkins_server_private_ip" {
-  description = "Private IP of the Jenkins server"
-  value       = module.jenkins_server[0].private_ip
-}
-
-output "jenkins_server_instance_id" {
-  description = "Instance ID of the Jenkins server"
-  value       = module.jenkins_server[0].instance_id
-}
-
-# ──────────────────────────────────────────────
 # Kubeconfig Command
 # ──────────────────────────────────────────────
 output "kubeconfig_command" {

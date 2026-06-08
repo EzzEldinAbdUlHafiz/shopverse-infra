@@ -7,6 +7,9 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+
 jobs:
   main:
     runs-on: ubuntu-latest
@@ -20,7 +23,7 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "~1.10"
+          terraform_version: ">= 1.10.0"
 
       - name: Terraform Init
         run: terraform -chdir=terraform init -reconfigure
@@ -33,7 +36,9 @@ jobs:
 
       - name: Get Bastion IP
         id: bastion
-        run: echo "ip=$(terraform -chdir=terraform output -raw bastion_public_ip)" >> $GITHUB_OUTPUT
+        run: |
+          BASTION_IP=$(aws ec2 describe-instances             --filters "Name=tag:Name,Values=${{ vars.PROJECT_NAME }}-bastion" "Name=instance-state-name,Values=running"             --query "Reservations[0].Instances[0].PublicIpAddress"             --output text)
+          echo "ip=$BASTION_IP" >> $GITHUB_OUTPUT
 
       - name: Deploy Platform via Bastion
         uses: appleboy/ssh-action@v1.0.0
@@ -44,22 +49,26 @@ jobs:
           script: |
             sudo apt-get update
             sudo apt-get install -y curl wget unzip jq git python3-pip
-            
+
             curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
             unzip -o /tmp/awscliv2.zip -d /tmp/
             sudo /tmp/aws/install --update
-            
+
             KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
             sudo curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl
             sudo chmod +x /usr/local/bin/kubectl
-            
+
             curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | sudo bash
             sudo pip3 install --break-system-packages ansible ansible-core || sudo pip3 install ansible ansible-core
-            
-            aws eks update-kubeconfig --region us-east-1 --name shopverse-cluster
+
+            aws eks update-kubeconfig --region ${{ vars.AWS_REGION }} --name ${{ vars.PROJECT_NAME }}-cluster
             helm repo add argo https://argoproj.github.io/argo-helm
             helm upgrade --install argocd argo/argo-cd --namespace argocd --create-namespace
-            
+
             git clone https://github.com/${{ github.repository }}.git /tmp/shopverse-infra
             cd /tmp/shopverse-infra
-            ansible-playbook -i localhost, ansible/site.yml
+            if [ -f ansible/site.yml ]; then
+              ansible-playbook -i localhost, ansible/site.yml
+            else
+              echo "ansible/site.yml not found, skipping Ansible"
+            fi
