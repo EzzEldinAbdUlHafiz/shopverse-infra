@@ -49,6 +49,81 @@ resource "aws_security_group" "cluster" {
 }
 
 # ──────────────────────────────────────────────
+# EKS Node Security Group
+# ──────────────────────────────────────────────
+resource "aws_security_group" "nodes" {
+  name_prefix = "${var.cluster_name}-node-"
+  description = "EKS node security group"
+  vpc_id      = var.vpc_id
+
+  # Node-to-node communication
+  ingress {
+    from_port = 0
+    to_port   = 65535
+    protocol  = "tcp"
+    self      = true
+    description = "Node-to-node all ports"
+  }
+
+  ingress {
+    from_port = 0
+    to_port   = 65535
+    protocol  = "udp"
+    self      = true
+    description = "Node-to-node UDP (VXLAN, etc.)"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound"
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-node-sg"
+  })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Cluster SG allows inbound 443 from nodes (API server)
+resource "aws_security_group_rule" "cluster_ingress_nodes_443" {
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.cluster.id
+  source_security_group_id = aws_security_group.nodes.id
+  description              = "Nodes to EKS API server"
+}
+
+# Cluster SG allows inbound 1025-65535 from nodes (kubelet)
+resource "aws_security_group_rule" "cluster_ingress_nodes_kubelet" {
+  type                     = "ingress"
+  from_port                = 1025
+  to_port                  = 65535
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.cluster.id
+  source_security_group_id = aws_security_group.nodes.id
+  description              = "Nodes to cluster control plane (kubelet)"
+}
+
+# Nodes SG allows inbound 1025-65535 from cluster (control plane to kubelet)
+resource "aws_security_group_rule" "nodes_ingress_cluster" {
+  type                     = "ingress"
+  from_port                = 1025
+  to_port                  = 65535
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.nodes.id
+  source_security_group_id = aws_security_group.cluster.id
+  description              = "Cluster control plane to node kubelets"
+}
+
+# ──────────────────────────────────────────────
 # EKS Cluster
 # ──────────────────────────────────────────────
 resource "aws_eks_cluster" "this" {
@@ -127,7 +202,7 @@ resource "aws_launch_template" "eks_nodes" {
   instance_type = var.node_instance_type
 
   network_interfaces {
-    security_groups = [aws_security_group.cluster.id]
+    security_groups = [aws_security_group.nodes.id]
   }
 
   tag_specifications {

@@ -15,18 +15,18 @@ output "cluster_certificate_authority" {
 }
 
 output "cluster_security_group_id" {
-  description = "Security group ID of the EKS cluster"
+  description = "Security group ID of the EKS cluster control plane"
   value       = aws_security_group.cluster.id
+}
+
+output "node_security_group_id" {
+  description = "Security group ID of the EKS worker nodes"
+  value       = aws_security_group.nodes.id
 }
 
 output "node_group_role_arn" {
   description = "IAM role ARN for the node group"
   value       = aws_iam_role.nodes.arn
-}
-
-output "node_security_group_id" {
-  description = "Security group ID of the EKS node group"
-  value       = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
 }
 
 output "alb_controller_role_arn" {
