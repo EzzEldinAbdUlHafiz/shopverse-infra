@@ -81,7 +81,7 @@ module "rds" {
 
 # ──────────────────────────────────────────────
 # RDS Connectivity — EKS Nodes to RDS
-# Uses the node security group for the ingress rule
+# Uses the EKS-managed cluster security group (attached to nodes by default)
 # ──────────────────────────────────────────────
 resource "aws_security_group_rule" "rds_eks_ingress" {
   type                     = "ingress"
@@ -89,5 +89,5 @@ resource "aws_security_group_rule" "rds_eks_ingress" {
   to_port                  = 3306
   protocol                 = "tcp"
   security_group_id        = module.rds.rds_security_group_id
-  source_security_group_id = module.eks.node_security_group_id
+  source_security_group_id = module.eks.eks_managed_security_group_id
 }

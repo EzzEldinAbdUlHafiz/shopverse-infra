@@ -19,9 +19,9 @@ output "cluster_security_group_id" {
   value       = aws_security_group.cluster.id
 }
 
-output "node_security_group_id" {
-  description = "Security group ID of the EKS worker nodes"
-  value       = aws_security_group.nodes.id
+output "eks_managed_security_group_id" {
+  description = "EKS-managed cluster security group (attached to nodes)"
+  value       = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
 }
 
 output "node_group_role_arn" {
