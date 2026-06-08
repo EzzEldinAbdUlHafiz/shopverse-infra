@@ -109,26 +109,20 @@ resource "aws_iam_role_policy_attachment" "node_container_registry" {
 }
 
 # ──────────────────────────────────────────────
-# EKS Ubuntu 24.04 AMI
+# EKS Optimized AMI (Amazon Linux 2023 via SSM)
 # ──────────────────────────────────────────────
-data "aws_ami" "eks_ubuntu_2404" {
-  most_recent = true
-  owners      = ["099720109477"] # Canonical
-
-  filter {
-    name   = "name"
-    values = ["ubuntu-eks-noble-24.04-amd64-server-*"]
-  }
+data "aws_ssm_parameter" "eks_ami" {
+  name = "/aws/service/eks/optimized-ami/${var.cluster_version}/amazon-linux-2023/x86_64/standard/recommended/image_id"
 }
 
 resource "aws_launch_template" "eks_nodes" {
   name_prefix = "${var.cluster_name}-node-lt-"
 
-  image_id      = data.aws_ami.eks_ubuntu_2404.id
+  image_id      = data.aws_ssm_parameter.eks_ami.value
   instance_type = var.node_instance_type
 
   network_interfaces {
-    security_groups = [aws_security_group.cluster.id] # Simplified, usually nodes have their own SG
+    security_groups = [aws_security_group.cluster.id]
   }
 
   tag_specifications {
