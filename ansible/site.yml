@@ -1,11 +1,11 @@
 ---
-- hosts: jump_servers
-  become: yes
-  roles:
-    - jump
-    - argocd
+- name: Install Platform Services on EKS
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
 
-- hosts: jenkins_servers
-  become: yes
   roles:
-    - jenkins
+    - argocd
+    - monitoring
+    - logging
