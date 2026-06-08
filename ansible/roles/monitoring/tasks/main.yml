@@ -6,12 +6,20 @@
     kind: Namespace
     state: present
 
+- name: Add prometheus-community Helm repository
+  kubernetes.core.helm_repository:
+    name: prometheus-community
+    repo_url: https://prometheus-community.github.io/helm-charts
+    kubeconfig: "{{ eks_kubeconfig | default(ansible_env.HOME + '/.kube/config') }}"
+
 - name: Install kube-prometheus-stack via Helm
   kubernetes.core.helm:
     name: prometheus-stack
     chart_ref: prometheus-community/kube-prometheus-stack
     release_namespace: monitoring
     chart_version: "55.0.0"
+    kubeconfig: "{{ eks_kubeconfig | default(ansible_env.HOME + '/.kube/config') }}"
+    state: present
     values:
       grafana:
         enabled: true
@@ -20,4 +28,18 @@
       prometheus:
         prometheusSpec:
           retention: 10d
-    state: present
+
+- name: Wait for prometheus-stack deployment to be ready
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: monitoring
+    label_selectors:
+      - "app.kubernetes.io/name=prometheus-stack"
+    kubeconfig: "{{ eks_kubeconfig | default(ansible_env.HOME + '/.kube/config') }}"
+  register: prometheus_deployment
+  until: >
+    prometheus_deployment.resources | length > 0 and
+    prometheus_deployment.resources[0].status.readyReplicas is defined and
+    prometheus_deployment.resources[0].status.readyReplicas >= 1
+  retries: 20
+  delay: 15
