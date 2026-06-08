@@ -63,6 +63,11 @@ resource "aws_eks_cluster" "this" {
     endpoint_private_access = true
   }
 
+  access_config {
+    authentication_mode                         = "API_AND_CONFIG_MAP"
+    bootstrap_cluster_creator_admin_permissions = true
+  }
+
   depends_on = [
     aws_iam_role_policy_attachment.cluster_policy,
     aws_iam_role_policy_attachment.cluster_vpc_resource_controller,
@@ -139,7 +144,7 @@ resource "aws_launch_template" "eks_nodes" {
 resource "aws_eks_node_group" "this" {
   cluster_name    = aws_eks_cluster.this.name
   node_group_name = "${var.cluster_name}-nodes"
-  version         = var.cluster_version
+  # version intentionally omitted — conflicts with launch_template image_id
   node_role_arn   = aws_iam_role.nodes.arn
   subnet_ids      = var.private_subnet_ids
 
@@ -170,7 +175,7 @@ resource "aws_eks_node_group" "this" {
 }
 
 # ──────────────────────────────────────────────
-# OIDC Provider (for IRSA - IAM Roles for Service Accounts)
+# OIDC Provider (for IRSA)
 # ──────────────────────────────────────────────
 data "tls_certificate" "eks" {
   url = aws_eks_cluster.this.identity[0].oidc[0].issuer
