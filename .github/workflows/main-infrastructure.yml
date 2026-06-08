@@ -81,9 +81,8 @@ jobs:
             # helm
             curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | sudo bash
 
-            # ansible + kubernetes client (ignore system packages to avoid apt conflicts)
+            # ansible + kubernetes client
             sudo pip3 install --break-system-packages --ignore-installed ansible ansible-core kubernetes
-            ansible-galaxy collection install -r ansible/requirements.yml
 
             # kubeconfig
             aws eks update-kubeconfig --region ${{ vars.AWS_REGION }} --name ${{ vars.PROJECT_NAME }}-cluster
@@ -92,8 +91,11 @@ jobs:
             helm repo add argo https://argoproj.github.io/argo-helm 2>/dev/null || true
             helm upgrade --install argocd argo/argo-cd --namespace argocd --create-namespace
 
-            # Ansible playbook
+            # Clone repo and install Ansible collections
             rm -rf /tmp/shopverse-infra
             git clone --depth 1 https://github.com/${{ github.repository }}.git /tmp/shopverse-infra
             cd /tmp/shopverse-infra
+            ansible-galaxy collection install -r ansible/requirements.yml
+
+            # Run Ansible playbook
             ansible-playbook -i localhost, ansible/site.yml || echo "Ansible completed with warnings"
