@@ -15,16 +15,11 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 data "aws_availability_zones" "available" {}
 
-# ──────────────────────────────────────────────
-# Layer 0 prerequisite — read only
-# ──────────────────────────────────────────────
 data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 }
 
-# ──────────────────────────────────────────────
-# S3 State Bucket
-# ──────────────────────────────────────────────
+# ── S3 State Bucket ──
 resource "aws_s3_bucket" "tfstate" {
   bucket = "${var.project_name}-tfstate"
 
@@ -61,9 +56,7 @@ resource "aws_s3_bucket_public_access_block" "tfstate" {
   restrict_public_buckets = true
 }
 
-# ──────────────────────────────────────────────
-# ECR Repositories
-# ──────────────────────────────────────────────
+# ── ECR Repositories ──
 resource "aws_ecr_repository" "repos" {
   for_each = toset(var.ecr_repos)
 
@@ -101,9 +94,7 @@ resource "aws_ecr_lifecycle_policy" "repos" {
   })
 }
 
-# ──────────────────────────────────────────────
-# VPC (Public Only)
-# ──────────────────────────────────────────────
+# ── VPC (Public Only) ──
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
@@ -153,24 +144,30 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# ──────────────────────────────────────────────
-# Jenkins Security Group — Zero Ingress
-# ──────────────────────────────────────────────
-resource "aws_security_group" "jenkins" {
-  name_prefix = "${var.project_name}-jenkins-"
+# ── Bastion Security Group ──
+resource "aws_security_group" "bastion" {
+  name_prefix = "${var.project_name}-bastion-"
   vpc_id      = aws_vpc.main.id
-  description = "Jenkins - SSM access only, zero ingress"
+  description = "Bastion host - SSH access only"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = var.bastion_allowed_ssh_cidrs
+    description = "SSH access"
+  }
 
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow outbound for SSM, packages, Git, APIs"
+    description = "Allow outbound for AWS APIs, Git, Helm repos"
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project_name}-jenkins-sg"
+    Name = "${var.project_name}-bastion-sg"
   })
 
   lifecycle {
@@ -178,46 +175,9 @@ resource "aws_security_group" "jenkins" {
   }
 }
 
-# ──────────────────────────────────────────────
-# Jenkins IAM — Permission Boundary + Role + Policy
-# ──────────────────────────────────────────────
-resource "aws_iam_policy" "jenkins_boundary" {
-  name        = "${var.project_name}-jenkins-boundary"
-  description = "Permission boundary for Jenkins role"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "AllowBootstrapAndMain"
-        Effect = "Allow"
-        Action = [
-          "ec2:*", "eks:*", "rds:*", "iam:*", "s3:*", "ssm:*",
-          "ecr:*", "elasticloadbalancing:*", "cloudwatch:*",
-          "logs:*", "kms:*", "autoscaling:*", "vpc:*"
-        ]
-        Resource = "*"
-      },
-      {
-        Sid    = "DenyPrivilegeEscalation"
-        Effect = "Deny"
-        Action = [
-          "iam:CreateUser",
-          "iam:AttachUserPolicy",
-          "iam:PutUserPolicy",
-          "iam:CreateAccessKey",
-          "iam:CreateAccountAlias"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-
-  tags = var.tags
-}
-
-resource "aws_iam_role" "jenkins" {
-  name = "${var.project_name}-jenkins-role"
+# ── Bastion IAM Role ──
+resource "aws_iam_role" "bastion" {
+  name = "${var.project_name}-bastion-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -230,63 +190,24 @@ resource "aws_iam_role" "jenkins" {
     }]
   })
 
-  permissions_boundary = aws_iam_policy.jenkins_boundary.arn
-
   tags = var.tags
 }
 
-resource "aws_iam_role_policy_attachment" "jenkins_ssm" {
-  role       = aws_iam_role.jenkins.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
-resource "aws_iam_role_policy" "jenkins_custom" {
-  name = "${var.project_name}-jenkins-custom-policy"
-  role = aws_iam_role.jenkins.id
+resource "aws_iam_role_policy" "bastion" {
+  name = "${var.project_name}-bastion-policy"
+  role = aws_iam_role.bastion.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "TerraformStateAccess"
         Effect = "Allow"
         Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:ListBucket",
-          "s3:DeleteObject"
-        ]
-        Resource = [
-          aws_s3_bucket.tfstate.arn,
-          "${aws_s3_bucket.tfstate.arn}/*"
-        ]
-      },
-      {
-        Sid    = "TerraformMainInfra"
-        Effect = "Allow"
-        Action = [
-          "ec2:*", "eks:*", "rds:*", "iam:*", "elasticloadbalancing:*",
-          "cloudwatch:*", "logs:*", "kms:*", "autoscaling:*", "vpc:*"
-        ]
-        Resource = "*"
-        Condition = {
-          StringEquals = {
-            "aws:RequestedRegion" = var.aws_region
-          }
-        }
-      },
-      {
-        Sid    = "ECRAccess"
-        Effect = "Allow"
-        Action = [
+          "eks:DescribeCluster",
+          "eks:ListClusters",
           "ecr:GetAuthorizationToken",
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage",
-          "ecr:PutImage",
-          "ecr:InitiateLayerUpload",
-          "ecr:UploadLayerPart",
-          "ecr:CompleteLayerUpload"
+          "ec2:DescribeInstances",
+          "rds:DescribeDBInstances"
         ]
         Resource = "*"
       }
@@ -294,45 +215,33 @@ resource "aws_iam_role_policy" "jenkins_custom" {
   })
 }
 
-resource "aws_iam_instance_profile" "jenkins" {
-  name = "${var.project_name}-jenkins-profile"
-  role = aws_iam_role.jenkins.name
-
+resource "aws_iam_instance_profile" "bastion" {
+  name = "${var.project_name}-bastion-profile"
+  role = aws_iam_role.bastion.name
   tags = var.tags
 }
 
-# ──────────────────────────────────────────────
-# Jenkins EC2 — No Key Pair, SSM Only, IMDSv2
-# ──────────────────────────────────────────────
-resource "aws_instance" "jenkins" {
-  ami                    = var.jenkins_ami_id
-  instance_type          = var.jenkins_instance_type
+# ── Bastion EC2 ──
+resource "aws_instance" "bastion" {
+  ami                    = var.bastion_ami_id
+  instance_type          = var.bastion_instance_type
   subnet_id              = aws_subnet.public[0].id
-  vpc_security_group_ids = [aws_security_group.jenkins.id]
-  iam_instance_profile   = aws_iam_instance_profile.jenkins.name
-
-  user_data = file("${path.module}/jenkins-user-data.sh")
+  vpc_security_group_ids = [aws_security_group.bastion.id]
+  iam_instance_profile   = aws_iam_instance_profile.bastion.name
+  key_name               = var.ssh_key_name
 
   root_block_device {
     volume_type = "gp3"
-    volume_size = 50
+    volume_size = 20
     encrypted   = true
   }
 
-  metadata_options {
-    http_endpoint               = "enabled"
-    http_tokens                 = "required"
-    http_put_response_hop_limit = 1
-  }
-
   tags = merge(var.tags, {
-    Name = "${var.project_name}-jenkins"
+    Name = "${var.project_name}-bastion"
   })
 }
 
-# ──────────────────────────────────────────────
-# GitHub App Role — Phase 3 Image Pushes to ECR
-# ──────────────────────────────────────────────
+# ── GitHub App Role (Phase 3 ECR pushes) ──
 resource "aws_iam_role" "github_app" {
   name = "${var.project_name}-github-app-role"
 
@@ -374,7 +283,8 @@ resource "aws_iam_role_policy" "github_app_perms" {
         Effect = "Allow"
         Action = [
           "ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage", "ecr:PutImage", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload"
+          "ecr:BatchGetImage", "ecr:PutImage", "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart", "ecr:CompleteLayerUpload"
         ]
         Resource = [for repo in aws_ecr_repository.repos : repo.arn]
       }

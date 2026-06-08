@@ -47,16 +47,28 @@ variable "github_branch" {
   default     = "main"
 }
 
-variable "jenkins_instance_type" {
-  description = "EC2 instance type for Jenkins"
+variable "bastion_instance_type" {
+  description = "EC2 instance type for the bastion host"
   type        = string
-  default     = "m7i-flex.large"
+  default     = "t3.micro"
 }
 
-variable "jenkins_ami_id" {
-  description = "AMI ID for Jenkins EC2 (Ubuntu 24.04 LTS x86_64)"
+variable "bastion_ami_id" {
+  description = "AMI ID for the bastion host (Ubuntu 24.04 LTS x86_64)"
   type        = string
   default     = "ami-05cf1e9f73fbad2e2"
+}
+
+variable "ssh_key_name" {
+  description = "AWS EC2 Key Pair name for SSH access to all instances"
+  type        = string
+  default     = "shopverse"
+}
+
+variable "bastion_allowed_ssh_cidrs" {
+  description = "CIDR blocks allowed to SSH to the bastion"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
 }
 
 variable "tags" {

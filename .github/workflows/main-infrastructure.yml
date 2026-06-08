@@ -1,0 +1,75 @@
+name: Main Infrastructure
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.PROJECT_NAME }}-github-bootstrap-role
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform init -reconfigure
+
+      - name: Terraform Plan
+        run: terraform -chdir=terraform plan -var-file="github-ci.tfvars" -out=tfplan
+
+      - name: Terraform Apply
+        run: terraform -chdir=terraform apply -auto-approve tfplan
+
+      - name: Get Bastion IP
+        id: bastion
+        run: echo "ip=$(terraform -chdir=terraform output -raw bastion_public_ip)" >> $GITHUB_OUTPUT
+
+      - name: Deploy Platform via Bastion
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ steps.bastion.outputs.ip }}
+          username: ubuntu
+          key: ${{ secrets.BASTION_SSH_KEY }}
+          script: |
+            # Install tools (idempotent — safe to rerun)
+            sudo apt-get update
+            sudo apt-get install -y curl wget unzip jq git python3-pip
+
+            # AWS CLI
+            curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+            unzip -o /tmp/awscliv2.zip -d /tmp/
+            sudo /tmp/aws/install --update
+
+            # kubectl
+            KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+            sudo curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl
+            sudo chmod +x /usr/local/bin/kubectl
+
+            # Helm
+            curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | sudo bash
+
+            # Ansible
+            sudo pip3 install --break-system-packages ansible ansible-core || sudo pip3 install ansible ansible-core
+
+            # Now deploy
+            aws eks update-kubeconfig --region us-east-1 --name shopverse-cluster
+            helm repo add argo https://argoproj.github.io/argo-helm
+            helm upgrade --install argocd argo/argo-cd --namespace argocd --create-namespace
+
+            # We need the ansible playbooks. Since we are on the bastion,
+            # the easiest way is to clone the repo or use a tool to push it.
+            # For a grad project, we can just clone it.
+            git clone https://github.com/${{ vars.GITHUB_ORG }}/${{ vars.GITHUB_REPO }}.git /tmp/shopverse-infra
+            cd /tmp/shopverse-infra
+            ansible-playbook -i localhost, ansible/site.yml
