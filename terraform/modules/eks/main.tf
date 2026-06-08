@@ -29,7 +29,7 @@ resource "aws_iam_role_policy_attachment" "cluster_vpc_resource_controller" {
 }
 
 # ──────────────────────────────────────────────
-# EKS Cluster Security Group
+# EKS Cluster Security Group (custom)
 # ──────────────────────────────────────────────
 resource "aws_security_group" "cluster" {
   name_prefix = "${var.cluster_name}-cluster-"
@@ -114,44 +114,16 @@ resource "aws_iam_role_policy_attachment" "node_container_registry" {
 }
 
 # ──────────────────────────────────────────────
-# EKS Optimized AMI (Amazon Linux 2023 via SSM)
-# ──────────────────────────────────────────────
-data "aws_ssm_parameter" "eks_ami" {
-  name = "/aws/service/eks/optimized-ami/${var.cluster_version}/amazon-linux-2023/x86_64/standard/recommended/image_id"
-}
-
-resource "aws_launch_template" "eks_nodes" {
-  name_prefix = "${var.cluster_name}-node-lt-"
-
-  image_id      = data.aws_ssm_parameter.eks_ami.value
-  instance_type = var.node_instance_type
-
-  network_interfaces {
-    security_groups = [aws_security_group.cluster.id]
-  }
-
-  tag_specifications {
-    resource_type = "instance"
-    tags = merge(var.tags, {
-      Name = "${var.cluster_name}-nodes"
-    })
-  }
-}
-
-# ──────────────────────────────────────────────
-# EKS Managed Node Group
+# EKS Managed Node Group (EKS-managed AMI + bootstrap)
 # ──────────────────────────────────────────────
 resource "aws_eks_node_group" "this" {
   cluster_name    = aws_eks_cluster.this.name
   node_group_name = "${var.cluster_name}-nodes"
-  # version intentionally omitted — conflicts with launch_template image_id
   node_role_arn   = aws_iam_role.nodes.arn
   subnet_ids      = var.private_subnet_ids
 
-  launch_template {
-    id      = aws_launch_template.eks_nodes.id
-    version = aws_launch_template.eks_nodes.latest_version
-  }
+  ami_type       = "AL2023_x86_64_STANDARD"
+  instance_types = [var.node_instance_type]
 
   scaling_config {
     desired_size = var.node_desired_size

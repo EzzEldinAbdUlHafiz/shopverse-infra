@@ -55,7 +55,7 @@ resource "aws_eks_access_entry" "bastion" {
 resource "aws_eks_access_policy_association" "bastion_admin" {
   cluster_name  = module.eks.cluster_name
   principal_arn = data.aws_iam_role.bastion.arn
-  policy_arn    = "arn:aws:iam::aws:policy/AmazonEKSClusterAdminPolicy"
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
   access_scope {
     type = "cluster"
@@ -81,7 +81,7 @@ module "rds" {
 
 # ──────────────────────────────────────────────
 # RDS Connectivity — EKS Nodes to RDS
-# Uses the cluster security group (attached to both control plane and nodes)
+# Uses the EKS-managed cluster security group (attached to nodes by default)
 # ──────────────────────────────────────────────
 resource "aws_security_group_rule" "rds_eks_ingress" {
   type                     = "ingress"
@@ -89,5 +89,5 @@ resource "aws_security_group_rule" "rds_eks_ingress" {
   to_port                  = 3306
   protocol                 = "tcp"
   security_group_id        = module.rds.rds_security_group_id
-  source_security_group_id = module.eks.cluster_security_group_id
+  source_security_group_id = module.eks.eks_managed_security_group_id
 }
