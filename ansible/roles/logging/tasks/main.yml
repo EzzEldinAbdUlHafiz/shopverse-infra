@@ -1,28 +1,26 @@
 ---
-- name: Logging Installation
-  tasks:
-    - name: Create logging namespace
-      kubernetes.core.k8s:
-        name: logging
-        api_version: v1
-        kind: Namespace
-        state: present
+- name: Create logging namespace
+  kubernetes.core.k8s:
+    name: logging
+    api_version: v1
+    kind: Namespace
+    state: present
 
-    - name: Install loki-stack via Helm
-      kubernetes.core.helm:
-        name: loki
-        chart_ref: grafana/loki-stack
-        release_namespace: logging
-        chart_version: "2.50.0"
-        state: present
+- name: Install loki-stack via Helm
+  kubernetes.core.helm:
+    name: loki
+    chart_ref: grafana/loki-stack
+    release_namespace: logging
+    chart_version: "2.50.0"
+    state: present
 
-    - name: Verify Promtail DaemonSet is running on all nodes
-      kubernetes.core.k8s_info:
-        namespace: logging
-        kind: Pod
-        label_selectors:
-          - "app.kubernetes.io/name=promtail"
-      register: promtail_pods
-      until: "promtail_pods.resources | length > 0"
-      retries: 10
-      delay: 10
+- name: Verify Promtail DaemonSet is running on all nodes
+  kubernetes.core.k8s_info:
+    namespace: logging
+    kind: Pod
+    label_selectors:
+      - "app.kubernetes.io/name=promtail"
+  register: promtail_pods
+  until: "promtail_pods.resources | length > 0"
+  retries: 10
+  delay: 10
