@@ -49,6 +49,62 @@ resource "aws_security_group" "cluster" {
 }
 
 # ──────────────────────────────────────────────
+# EKS Node Security Group
+# ──────────────────────────────────────────────
+resource "aws_security_group" "nodes" {
+  name_prefix = "${var.cluster_name}-node-"
+  description = "EKS node security group"
+  vpc_id      = var.vpc_id
+
+  # Node-to-node all traffic
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
+    description = "Node-to-node all traffic"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound"
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-node-sg"
+  })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Cluster SG allows ALL traffic from Node SG
+resource "aws_security_group_rule" "cluster_ingress_nodes" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  security_group_id        = aws_security_group.cluster.id
+  source_security_group_id = aws_security_group.nodes.id
+  description              = "All traffic from nodes to cluster"
+}
+
+# Node SG allows ALL traffic from Cluster SG
+resource "aws_security_group_rule" "nodes_ingress_cluster" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  security_group_id        = aws_security_group.nodes.id
+  source_security_group_id = aws_security_group.cluster.id
+  description              = "All traffic from cluster to nodes"
+}
+
+# ──────────────────────────────────────────────
 # EKS Cluster
 # ──────────────────────────────────────────────
 resource "aws_eks_cluster" "this" {
@@ -139,6 +195,8 @@ resource "aws_eks_node_group" "this" {
     aws_iam_role_policy_attachment.node_worker_policy,
     aws_iam_role_policy_attachment.node_cni_policy,
     aws_iam_role_policy_attachment.node_container_registry,
+    aws_security_group_rule.cluster_ingress_nodes,
+    aws_security_group_rule.nodes_ingress_cluster,
   ]
 
   tags = merge(var.tags, {
