@@ -2,11 +2,6 @@ name: Main Infrastructure
 
 on:
   workflow_dispatch:
-    inputs:
-      confirm_apply:
-        description: 'Type "yes" to confirm terraform apply'
-        required: true
-        default: 'no'
 
 permissions:
   id-token: write
@@ -33,31 +28,14 @@ jobs:
       - name: Terraform Plan
         run: terraform -chdir=terraform plan -var-file="github-ci.tfvars" -out=tfplan
 
-      - name: Upload Plan Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan
-          path: terraform/tfplan
-          retention-days: 1
-
-      - name: Confirm Apply
-        if: github.event.inputs.confirm_apply != 'yes'
-        run: |
-          echo "❌ Apply blocked. You typed: '${{ github.event.inputs.confirm_apply }}'"
-          echo "To apply, re-run this workflow and type 'yes' in the confirm_apply field."
-          exit 1
-
       - name: Terraform Apply
-        if: github.event.inputs.confirm_apply == 'yes'
         run: terraform -chdir=terraform apply -auto-approve tfplan
 
       - name: Get Bastion IP
-        if: github.event.inputs.confirm_apply == 'yes'
         id: bastion
         run: echo "ip=$(terraform -chdir=terraform output -raw bastion_public_ip)" >> $GITHUB_OUTPUT
 
       - name: Deploy Platform via Bastion
-        if: github.event.inputs.confirm_apply == 'yes'
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ steps.bastion.outputs.ip }}
