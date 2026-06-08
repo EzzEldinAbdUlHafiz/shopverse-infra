@@ -7,16 +7,27 @@ locals {
 }
 
 # ──────────────────────────────────────────────
-# VPC Module
+# Lookup existing bootstrap VPC
+# ──────────────────────────────────────────────
+data "aws_vpc" "existing" {
+  filter {
+    name   = "tag:Name"
+    values = ["${var.project_name}-vpc"]
+  }
+}
+
+# ──────────────────────────────────────────────
+# VPC Module (adds private subnets to existing VPC)
 # ──────────────────────────────────────────────
 module "vpc" {
   source = "./modules/vpc"
 
-  name         = var.project_name
-  vpc_cidr     = var.vpc_cidr
-  cluster_name = var.cluster_name
-  aws_region   = var.aws_region
-  tags         = local.common_tags
+  name            = var.project_name
+  vpc_cidr        = var.vpc_cidr
+  existing_vpc_id = data.aws_vpc.existing.id
+  cluster_name    = var.cluster_name
+  aws_region      = var.aws_region
+  tags            = local.common_tags
 }
 
 # ──────────────────────────────────────────────

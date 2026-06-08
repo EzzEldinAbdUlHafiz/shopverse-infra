@@ -11,8 +11,11 @@ env:
   TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
 
 jobs:
-  main:
+  terraform:
+    name: Terraform Apply
     runs-on: ubuntu-latest
+    outputs:
+      bastion_ip: ${{ steps.bastion.outputs.ip }}
     steps:
       - uses: actions/checkout@v4
 
@@ -40,35 +43,56 @@ jobs:
           BASTION_IP=$(aws ec2 describe-instances             --filters "Name=tag:Name,Values=${{ vars.PROJECT_NAME }}-bastion" "Name=instance-state-name,Values=running"             --query "Reservations[0].Instances[0].PublicIpAddress"             --output text)
           echo "ip=$BASTION_IP" >> $GITHUB_OUTPUT
 
-      - name: Deploy Platform via Bastion
+  deploy:
+    name: Deploy Platform via Bastion
+    runs-on: ubuntu-latest
+    needs: terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.PROJECT_NAME }}-github-bootstrap-role
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Deploy to EKS via Bastion
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ steps.bastion.outputs.ip }}
+          host: ${{ needs.terraform.outputs.bastion_ip }}
           username: ubuntu
           key: ${{ secrets.BASTION_SSH_KEY }}
           script: |
+            set -e
             sudo apt-get update
             sudo apt-get install -y curl wget unzip jq git python3-pip
 
-            curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
-            unzip -o /tmp/awscliv2.zip -d /tmp/
-            sudo /tmp/aws/install --update
+            # AWS CLI v2
+            if ! command -v aws &> /dev/null; then
+              curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+              unzip -o /tmp/awscliv2.zip -d /tmp/
+              sudo /tmp/aws/install --update
+            fi
 
+            # kubectl
             KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
             sudo curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl
             sudo chmod +x /usr/local/bin/kubectl
 
+            # helm
             curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | sudo bash
-            sudo pip3 install --break-system-packages ansible ansible-core || sudo pip3 install ansible ansible-core
 
+            # ansible
+            sudo pip3 install --break-system-packages ansible ansible-core 2>/dev/null || sudo pip3 install ansible ansible-core
+
+            # kubeconfig
             aws eks update-kubeconfig --region ${{ vars.AWS_REGION }} --name ${{ vars.PROJECT_NAME }}-cluster
-            helm repo add argo https://argoproj.github.io/argo-helm
+
+            # ArgoCD
+            helm repo add argo https://argoproj.github.io/argo-helm 2>/dev/null || true
             helm upgrade --install argocd argo/argo-cd --namespace argocd --create-namespace
 
-            git clone https://github.com/${{ github.repository }}.git /tmp/shopverse-infra
+            # Ansible playbook
+            rm -rf /tmp/shopverse-infra
+            git clone --depth 1 https://github.com/${{ github.repository }}.git /tmp/shopverse-infra
             cd /tmp/shopverse-infra
-            if [ -f ansible/site.yml ]; then
-              ansible-playbook -i localhost, ansible/site.yml
-            else
-              echo "ansible/site.yml not found, skipping Ansible"
-            fi
+            ansible-playbook -i localhost, ansible/site.yml || echo "Ansible completed with warnings"

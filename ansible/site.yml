@@ -2,7 +2,7 @@
 - name: Install Platform Services on EKS
   hosts: localhost
   connection: local
-  become: true
+  become: yes
   gather_facts: false
 
   roles:

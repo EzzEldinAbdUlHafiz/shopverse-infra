@@ -3,13 +3,16 @@ data "aws_availability_zones" "available" {
 }
 
 locals {
-  azs = slice(data.aws_availability_zones.available.names, 0, 2)
+  azs    = slice(data.aws_availability_zones.available.names, 0, 2)
+  vpc_id = var.existing_vpc_id != null ? var.existing_vpc_id : aws_vpc.this[0].id
 }
 
 # ──────────────────────────────────────────────
-# VPC
+# VPC (create only if no existing VPC ID provided)
 # ──────────────────────────────────────────────
 resource "aws_vpc" "this" {
+  count = var.existing_vpc_id == null ? 1 : 0
+
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
@@ -20,12 +23,12 @@ resource "aws_vpc" "this" {
 }
 
 # ──────────────────────────────────────────────
-# Public Subnets
+# Public Subnets (only if creating new VPC)
 # ──────────────────────────────────────────────
 resource "aws_subnet" "public" {
-  count = length(local.azs)
+  count = var.existing_vpc_id == null ? length(local.azs) : 0
 
-  vpc_id                  = aws_vpc.this.id
+  vpc_id                  = local.vpc_id
   cidr_block              = cidrsubnet(var.vpc_cidr, 8, count.index)
   availability_zone       = local.azs[count.index]
   map_public_ip_on_launch = true
@@ -38,12 +41,28 @@ resource "aws_subnet" "public" {
 }
 
 # ──────────────────────────────────────────────
+# Data source for existing public subnets (bootstrap VPC)
+# ──────────────────────────────────────────────
+data "aws_subnets" "public_bootstrap" {
+  count = var.existing_vpc_id != null ? 1 : 0
+
+  filter {
+    name   = "vpc-id"
+    values = [var.existing_vpc_id]
+  }
+  filter {
+    name   = "map-public-ip-on-launch"
+    values = ["true"]
+  }
+}
+
+# ──────────────────────────────────────────────
 # Private Subnets
 # ──────────────────────────────────────────────
 resource "aws_subnet" "private" {
   count = length(local.azs)
 
-  vpc_id            = aws_vpc.this.id
+  vpc_id            = local.vpc_id
   cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 10)
   availability_zone = local.azs[count.index]
 
@@ -55,10 +74,12 @@ resource "aws_subnet" "private" {
 }
 
 # ──────────────────────────────────────────────
-# Internet Gateway
+# Internet Gateway (only if creating new VPC)
 # ──────────────────────────────────────────────
 resource "aws_internet_gateway" "this" {
-  vpc_id = aws_vpc.this.id
+  count = var.existing_vpc_id == null ? 1 : 0
+
+  vpc_id = local.vpc_id
 
   tags = merge(var.tags, {
     Name = "${var.name}-igw"
@@ -78,7 +99,7 @@ resource "aws_eip" "nat" {
 
 resource "aws_nat_gateway" "this" {
   allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public[0].id
+  subnet_id     = var.existing_vpc_id == null ? aws_subnet.public[0].id : data.aws_subnets.public_bootstrap[0].ids[0]
 
   tags = merge(var.tags, {
     Name = "${var.name}-nat"
@@ -91,11 +112,13 @@ resource "aws_nat_gateway" "this" {
 # Route Tables
 # ──────────────────────────────────────────────
 resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.this.id
+  count = var.existing_vpc_id == null ? 1 : 0
+
+  vpc_id = local.vpc_id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.this.id
+    gateway_id = aws_internet_gateway.this[0].id
   }
 
   tags = merge(var.tags, {
@@ -104,7 +127,7 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table" "private" {
-  vpc_id = aws_vpc.this.id
+  vpc_id = local.vpc_id
 
   route {
     cidr_block     = "0.0.0.0/0"
@@ -117,10 +140,10 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route_table_association" "public" {
-  count = length(local.azs)
+  count = var.existing_vpc_id == null ? length(local.azs) : 0
 
   subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
+  route_table_id = aws_route_table.public[0].id
 }
 
 resource "aws_route_table_association" "private" {
@@ -138,7 +161,7 @@ resource "aws_route_table_association" "private" {
 resource "aws_security_group" "vpc_endpoints" {
   name        = "${var.name}-vpc-endpoints-sg"
   description = "Security group for VPC endpoints"
-  vpc_id      = aws_vpc.this.id
+  vpc_id      = local.vpc_id
 
   ingress {
     from_port   = 443
@@ -161,14 +184,14 @@ resource "aws_security_group" "vpc_endpoints" {
 
 # S3 Gateway Endpoint
 resource "aws_vpc_endpoint" "s3" {
-  vpc_id            = aws_vpc.this.id
+  vpc_id            = local.vpc_id
   service_name      = "com.amazonaws.${var.aws_region}.s3"
   vpc_endpoint_type = "Gateway"
 
-  route_table_ids = [
-    aws_route_table.public.id,
-    aws_route_table.private.id
-  ]
+  route_table_ids = concat(
+    var.existing_vpc_id == null ? [aws_route_table.public[0].id] : [],
+    [aws_route_table.private.id]
+  )
 
   tags = merge(var.tags, {
     Name = "${var.name}-vpc-endpoint-s3"
@@ -188,7 +211,7 @@ locals {
 resource "aws_vpc_endpoint" "interface" {
   for_each = toset(local.interface_services)
 
-  vpc_id             = aws_vpc.this.id
+  vpc_id             = local.vpc_id
   service_name       = "com.amazonaws.${var.aws_region}.${each.key}"
   vpc_endpoint_type  = "Interface"
 

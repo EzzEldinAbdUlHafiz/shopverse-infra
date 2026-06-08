@@ -1,16 +1,16 @@
 output "vpc_id" {
   description = "VPC ID"
-  value       = aws_vpc.this.id
+  value       = local.vpc_id
 }
 
 output "vpc_cidr" {
   description = "VPC CIDR block"
-  value       = aws_vpc.this.cidr_block
+  value       = var.vpc_cidr
 }
 
 output "public_subnet_ids" {
   description = "List of public subnet IDs"
-  value       = aws_subnet.public[*].id
+  value       = var.existing_vpc_id == null ? aws_subnet.public[*].id : data.aws_subnets.public_bootstrap[0].ids
 }
 
 output "private_subnet_ids" {
@@ -20,7 +20,7 @@ output "private_subnet_ids" {
 
 output "internet_gateway_id" {
   description = "Internet Gateway ID"
-  value       = aws_internet_gateway.this.id
+  value       = var.existing_vpc_id == null ? aws_internet_gateway.this[0].id : null
 }
 
 output "nat_gateway_id" {
