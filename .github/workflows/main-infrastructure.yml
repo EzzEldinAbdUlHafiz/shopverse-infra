@@ -87,15 +87,11 @@ jobs:
             # kubeconfig
             aws eks update-kubeconfig --region ${{ vars.AWS_REGION }} --name ${{ vars.PROJECT_NAME }}-cluster
 
-            # ArgoCD
-            helm repo add argo https://argoproj.github.io/argo-helm 2>/dev/null || true
-            helm upgrade --install argocd argo/argo-cd --namespace argocd --create-namespace
-
             # Clone repo and install Ansible collections
             rm -rf /tmp/shopverse-infra
             git clone --depth 1 https://github.com/${{ github.repository }}.git /tmp/shopverse-infra
             cd /tmp/shopverse-infra
             ansible-galaxy collection install -r ansible/requirements.yml
 
-            # Run Ansible playbook
+            # Run Ansible playbook (ArgoCD + Monitoring + Logging)
             ansible-playbook -i localhost, ansible/site.yml || echo "Ansible completed with warnings"
