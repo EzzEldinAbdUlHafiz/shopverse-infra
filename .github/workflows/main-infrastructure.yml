@@ -81,8 +81,9 @@ jobs:
             # helm
             curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | sudo bash
 
-            # ansible
-            sudo pip3 install --break-system-packages ansible ansible-core 2>/dev/null || sudo pip3 install ansible ansible-core
+            # ansible + kubernetes python client + collections
+            sudo pip3 install --break-system-packages ansible ansible-core kubernetes 2>/dev/null || sudo pip3 install ansible ansible-core kubernetes
+            ansible-galaxy collection install -r ansible/requirements.yml
 
             # kubeconfig
             aws eks update-kubeconfig --region ${{ vars.AWS_REGION }} --name ${{ vars.PROJECT_NAME }}-cluster
