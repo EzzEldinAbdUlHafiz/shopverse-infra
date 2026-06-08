@@ -1,5 +1,0 @@
-plugin: aws_ec2
-region: us-east-1
-
-# No dynamic groups needed — bastion runs everything locally via localhost
-# Kept for reference if you add tagged instances later

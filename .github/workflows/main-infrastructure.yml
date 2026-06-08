@@ -64,7 +64,7 @@ jobs:
           script: |
             set -e
             sudo apt-get update
-            sudo apt-get install -y curl wget unzip jq git python3-pip
+            sudo apt-get install -y curl wget unzip jq git python3-pip python3-venv
 
             # AWS CLI v2
             if ! command -v aws &> /dev/null; then
@@ -81,8 +81,8 @@ jobs:
             # helm
             curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | sudo bash
 
-            # ansible + kubernetes python client + collections
-            sudo pip3 install --break-system-packages ansible ansible-core kubernetes 2>/dev/null || sudo pip3 install ansible ansible-core kubernetes
+            # ansible + kubernetes client (Ubuntu 24.04 needs --break-system-packages)
+            sudo pip3 install --break-system-packages ansible ansible-core kubernetes
             ansible-galaxy collection install -r ansible/requirements.yml
 
             # kubeconfig
