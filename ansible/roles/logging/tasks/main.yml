@@ -12,12 +12,21 @@
     repo_url: https://grafana.github.io/helm-charts
     kubeconfig: "{{ eks_kubeconfig }}"
 
-- name: Install loki-stack via Helm
+- name: Install loki via Helm
   kubernetes.core.helm:
     name: loki
-    chart_ref: grafana/loki-stack
+    chart_ref: grafana/loki
     release_namespace: logging
-    chart_version: "2.50.0"
+    chart_version: "7.0.0"
+    kubeconfig: "{{ eks_kubeconfig }}"
+    state: present
+
+- name: Install promtail via Helm
+  kubernetes.core.helm:
+    name: promtail
+    chart_ref: grafana/promtail
+    release_namespace: logging
+    chart_version: "6.17.1"
     kubeconfig: "{{ eks_kubeconfig }}"
     state: present
 
