@@ -17,9 +17,11 @@
     name: prometheus-stack
     chart_ref: prometheus-community/kube-prometheus-stack
     release_namespace: monitoring
-    chart_version: "55.0.0"
+    chart_version: "86.2.0"
     kubeconfig: "{{ eks_kubeconfig }}"
     state: present
+    wait: true
+    timeout: 600s
     values:
       grafana:
         enabled: true
@@ -29,17 +31,17 @@
         prometheusSpec:
           retention: 10d
 
-- name: Wait for prometheus-stack deployment to be ready
+- name: Wait for Grafana deployment to be ready
   kubernetes.core.k8s_info:
     kind: Deployment
     namespace: monitoring
     label_selectors:
-      - "app=prometheus-stack-prometheus"
+      - "app.kubernetes.io/name=grafana"
     kubeconfig: "{{ eks_kubeconfig }}"
-  register: prometheus_deployment
+  register: grafana_deployment
   until: >
-    prometheus_deployment.resources | length > 0 and
-    prometheus_deployment.resources[0].status.readyReplicas is defined and
-    prometheus_deployment.resources[0].status.readyReplicas >= 1
+    grafana_deployment.resources | length > 0 and
+    grafana_deployment.resources[0].status.readyReplicas is defined and
+    grafana_deployment.resources[0].status.readyReplicas >= 1
   retries: 20
   delay: 15
