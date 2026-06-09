@@ -10,7 +10,7 @@
   kubernetes.core.helm_repository:
     name: prometheus-community
     repo_url: https://prometheus-community.github.io/helm-charts
-    kubeconfig: "{{ eks_kubeconfig | default(ansible_env.HOME + '/.kube/config') }}"
+    kubeconfig: "{{ eks_kubeconfig }}"
 
 - name: Install kube-prometheus-stack via Helm
   kubernetes.core.helm:
@@ -18,7 +18,7 @@
     chart_ref: prometheus-community/kube-prometheus-stack
     release_namespace: monitoring
     chart_version: "55.0.0"
-    kubeconfig: "{{ eks_kubeconfig | default(ansible_env.HOME + '/.kube/config') }}"
+    kubeconfig: "{{ eks_kubeconfig }}"
     state: present
     values:
       grafana:
@@ -35,7 +35,7 @@
     namespace: monitoring
     label_selectors:
       - "app.kubernetes.io/name=prometheus-stack"
-    kubeconfig: "{{ eks_kubeconfig | default(ansible_env.HOME + '/.kube/config') }}"
+    kubeconfig: "{{ eks_kubeconfig }}"
   register: prometheus_deployment
   until: >
     prometheus_deployment.resources | length > 0 and

@@ -2,7 +2,7 @@
 - name: Install Platform Services on EKS
   hosts: localhost
   connection: local
-  gather_facts: false
+  gather_facts: true
 
   roles:
     - argocd

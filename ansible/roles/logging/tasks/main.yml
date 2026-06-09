@@ -10,7 +10,7 @@
   kubernetes.core.helm_repository:
     name: grafana
     repo_url: https://grafana.github.io/helm-charts
-    kubeconfig: "{{ eks_kubeconfig | default(ansible_env.HOME + '/.kube/config') }}"
+    kubeconfig: "{{ eks_kubeconfig }}"
 
 - name: Install loki-stack via Helm
   kubernetes.core.helm:
@@ -18,7 +18,7 @@
     chart_ref: grafana/loki-stack
     release_namespace: logging
     chart_version: "2.50.0"
-    kubeconfig: "{{ eks_kubeconfig | default(ansible_env.HOME + '/.kube/config') }}"
+    kubeconfig: "{{ eks_kubeconfig }}"
     state: present
 
 - name: Verify Promtail DaemonSet is running on all nodes
@@ -27,7 +27,7 @@
     kind: Pod
     label_selectors:
       - "app.kubernetes.io/name=promtail"
-    kubeconfig: "{{ eks_kubeconfig | default(ansible_env.HOME + '/.kube/config') }}"
+    kubeconfig: "{{ eks_kubeconfig }}"
   register: promtail_pods
   until: "promtail_pods.resources | length > 0"
   retries: 10
