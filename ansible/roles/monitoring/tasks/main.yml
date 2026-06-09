@@ -34,7 +34,7 @@
     kind: Deployment
     namespace: monitoring
     label_selectors:
-      - "app.kubernetes.io/name=prometheus-stack"
+      - "app=prometheus-stack-prometheus"
     kubeconfig: "{{ eks_kubeconfig }}"
   register: prometheus_deployment
   until: >

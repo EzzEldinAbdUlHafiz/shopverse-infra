@@ -87,9 +87,17 @@ jobs:
             # kubeconfig
             aws eks update-kubeconfig --region ${{ vars.AWS_REGION }} --name ${{ vars.PROJECT_NAME }}-cluster
 
-            echo "Checking Loki-stack chart versions..."
+            echo "Checking Helm chart versions..."
             helm repo add grafana https://grafana.github.io/helm-charts
-            helm search repo grafana/loki-stack --versions | head -n 10
+            helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+            echo "--- grafana/loki ---"
+            helm search repo grafana/loki --versions | head -n 5
+            echo "--- grafana/promtail ---"
+            helm search repo grafana/promtail --versions | head -n 5
+            echo "--- prometheus-community/kube-prometheus-stack ---"
+            helm search repo prometheus-community/kube-prometheus-stack --versions | head -n 5
+            echo "--- argo/argo-cd ---"
+            helm search repo argo/argo-cd --versions | head -n 5
 
             # Clone repo and install Ansible collections
             rm -rf /tmp/shopverse-infra
