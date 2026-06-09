@@ -87,6 +87,10 @@ jobs:
             # kubeconfig
             aws eks update-kubeconfig --region ${{ vars.AWS_REGION }} --name ${{ vars.PROJECT_NAME }}-cluster
 
+            echo "Checking Loki-stack chart versions..."
+            helm repo add grafana https://grafana.github.io/helm-charts
+            helm search repo grafana/loki-stack --versions | head -n 10
+
             # Clone repo and install Ansible collections
             rm -rf /tmp/shopverse-infra
             git clone --depth 1 https://github.com/${{ github.repository }}.git /tmp/shopverse-infra
@@ -94,4 +98,4 @@ jobs:
             ansible-galaxy collection install -r ansible/requirements.yml
 
             # Run Ansible playbook (ArgoCD + Monitoring + Logging)
-            ansible-playbook -i localhost, ansible/site.yml || echo "Ansible completed with warnings"
+            ansible-playbook -i localhost, ansible/site.yml

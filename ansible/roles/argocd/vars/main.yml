@@ -1,3 +1,0 @@
----
-argocd_version: "v3.4.3"
-argocd_namespace: "argocd"

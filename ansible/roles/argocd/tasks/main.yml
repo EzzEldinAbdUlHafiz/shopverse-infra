@@ -15,7 +15,6 @@
       --name {{ eks_cluster_name }}
       --kubeconfig {{ eks_kubeconfig }}
   changed_when: true
-  become_user: ubuntu
 
 - name: Add ArgoCD Helm repository
   kubernetes.core.helm_repository:

@@ -1,5 +1,8 @@
 ---
-- hosts: localhost
+- name: Install ArgoCD only
+  hosts: localhost
   connection: local
+  gather_facts: true
+
   roles:
     - argocd

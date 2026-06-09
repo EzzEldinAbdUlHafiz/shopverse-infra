@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Path to the private key relative to this script
 KEY_PATH="../shopverse.pem"
@@ -28,7 +29,7 @@ echo "Running Ansible playbook..."
 ansible-galaxy collection install -r requirements.yml
 # Set AWS region for the lookup plugin
 export AWS_REGION=${AWS_REGION:-us-east-1}
-ansible-playbook -i inventory/ site.yml
+ansible-playbook -i localhost, site.yml
 
 # Return the exit code of the playbook
 exit $?
