@@ -47,7 +47,7 @@ resource "aws_db_instance" "this" {
   vpc_security_group_ids = [aws_security_group.rds.id]
 
   # Performance & Cost
-  multi_az            = false
+  multi_az            = true
   publicly_accessible = false
   skip_final_snapshot = true
   storage_encrypted   = true
