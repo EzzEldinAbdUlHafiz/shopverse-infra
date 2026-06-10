@@ -85,7 +85,7 @@ The infrastructure is deployed in a strict linear sequence:
 | `terraform/backend.tf` | State Management | Configures Terraform to use the S3 bucket created in bootstrap. | Interacts with S3. |
 | `terraform/modules/vpc/main.tf` | Networking | Creates public and private subnets across multiple AZs. | Used by EKS and RDS modules. |
 | `terraform/modules/eks/main.tf` | K8s Cluster | Provisions the EKS cluster and managed node groups. | Uses VPC module; grants access to Bastion. |
-| `terraform/modules/rds/main.tf` | Database | Provisions the managed MySQL instance. | Uses VPC module; allows EKS node traffic. |
+| `terraform/modules/rds/main.tf` | Database | Provisions a Multi-AZ managed MySQL instance for high availability. | Uses VPC module; allows EKS node traffic. |
 
 ### Ansible
 | Path | Purpose | Functionality | Interactions |
