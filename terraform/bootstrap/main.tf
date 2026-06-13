@@ -137,14 +137,14 @@ resource "aws_iam_role_policy_attachment" "github_bootstrap" {
 
 # ── S3 State Bucket ──
 resource "aws_s3_bucket" "tfstate" {
-  bucket = "${var.project_name}-tfstate"
+  bucket = "${var.project_name}-tfstate-${data.aws_caller_identity.current.account_id}"
 
   lifecycle {
     prevent_destroy = true
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project_name}-tfstate"
+    Name = "${var.project_name}-tfstate-${data.aws_caller_identity.current.account_id}"
   })
 }
 

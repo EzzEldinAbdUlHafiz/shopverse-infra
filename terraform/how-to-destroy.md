@@ -35,7 +35,7 @@ Because S3 Versioning is enabled, the bucket will still contain "hidden" version
 
 ```bash
 # Set bucket name (matches the naming in bootstrap/main.tf)
-BUCKET="shopverse-tfstate"
+BUCKET="shopverse-tfstate-<your-account-id>"
 
 # 1. List all versions and delete markers and format for the AWS CLI
 aws s3api list-object-versions --bucket $BUCKET --output json > all_versions.json
@@ -58,4 +58,4 @@ To confirm everything is gone:
 - **AWS Console $\rightarrow$ EC2 $\rightarrow$ Instances**: Should be empty.
 - **AWS Console $\rightarrow$ RDS $\rightarrow$ Databases**: Should be empty.
 - **AWS Console $\rightarrow$ EKS $\rightarrow$ Clusters**: Should be empty.
-- **AWS Console $\rightarrow$ S3 $\rightarrow$ Buckets**: `shopverse-tfstate` should no longer exist.
+- **AWS Console $\rightarrow$ S3 $\rightarrow$ Buckets**: `shopverse-tfstate-<your-account-id>` should no longer exist.

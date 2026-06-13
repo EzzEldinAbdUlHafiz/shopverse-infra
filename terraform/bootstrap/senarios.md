@@ -8,6 +8,7 @@ Run this on **your_local_machine** to determine which scenario you are in **befo
 
 ```bash
 #!/bin/bash
+BUCKET="shopverse-tfstate-your-account-id"
 echo "=== IAM Roles ==="
 aws iam get-role --role-name shopverse-jenkins-role --region us-east-1 2>/dev/null && echo "❌ shopverse-jenkins-role EXISTS" || echo "✅ shopverse-jenkins-role GONE"
 aws iam get-role --role-name shopverse-github-app-role --region us-east-1 2>/dev/null && echo "❌ shopverse-github-app-role EXISTS" || echo "✅ shopverse-github-app-role GONE"
@@ -16,10 +17,10 @@ echo "=== IAM Policies ==="
 aws iam get-policy --policy-arn arn:aws:iam::587628267564:policy/shopverse-jenkins-boundary --region us-east-1 2>/dev/null && echo "❌ shopverse-jenkins-boundary EXISTS" || echo "✅ shopverse-jenkins-boundary GONE"
 
 echo "=== S3 Bucket ==="
-aws s3api head-bucket --bucket shopverse-tfstate --region us-east-1 2>/dev/null && echo "⚠️  shopverse-tfstate bucket EXISTS" || echo "✅ shopverse-tfstate bucket GONE"
+aws s3api head-bucket --bucket "$BUCKET" --region us-east-1 2>/dev/null && echo "⚠️  $BUCKET bucket EXISTS" || echo "✅ $BUCKET bucket GONE"
 
 echo "=== State File in S3 ==="
-aws s3api head-object --bucket shopverse-tfstate --key bootstrap/terraform.tfstate --region us-east-1 2>/dev/null && echo "⚠️  terraform.tfstate EXISTS in S3" || echo "✅ terraform.tfstate NOT in S3"
+aws s3api head-object --bucket "$BUCKET" --key bootstrap/terraform.tfstate --region us-east-1 2>/dev/null && echo "⚠️  terraform.tfstate EXISTS in S3" || echo "✅ terraform.tfstate NOT in S3"
 ```
 
 Use the results to identify your scenario below.
@@ -39,7 +40,7 @@ Use the results to identify your scenario below.
 | `Apply` | ✅ Creates S3 bucket, ECR repos, VPC, Jenkins EC2, IAM roles |
 | `Backup local state` | ✅ Uploads `terraform.tfstate` as GitHub artifact |
 | `Write backend config` | ✅ Generates `backend.tf` with S3 backend |
-| `Migrate state to S3` | ✅ Copies state to `s3://shopverse-tfstate/bootstrap/terraform.tfstate` |
+| `Migrate state to S3` | ✅ Copies state to `s3://shopverse-tfstate-<your-account-id>/bootstrap/terraform.tfstate` |
 | **Final State** | 🟢 **Bootstrap complete. State lives in S3.** |
 
 **Next Run:** Will detect `mode=remote`, run `init -reconfigure`, plan/apply, no changes.
@@ -141,7 +142,7 @@ aws iam get-policy --policy-arn arn:aws:iam::587628267564:policy/shopverse-jenki
 ## Scenario 3: Infrastructure Exists, State File Missing
 
 **Symptoms:**
-- S3 bucket `shopverse-tfstate` returns `EXISTS`
+- S3 bucket `shopverse-tfstate-<your-account-id>` returns `EXISTS`
 - `terraform.tfstate` in S3 returns `NOT in S3`
 - Other resources may or may not exist (ECR, VPC, Jenkins)
 
@@ -169,7 +170,7 @@ Run on **your_local_machine**:
 #!/bin/bash
 set -e
 
-BUCKET="shopverse-tfstate"
+BUCKET="shopverse-tfstate-your-account-id"
 REGION="us-east-1"
 
 echo "=== 1. Delete all S3 object versions ==="
@@ -261,7 +262,7 @@ On **your_local_machine**, edit `terraform/bootstrap/main.tf` and add these at t
 # ──────────────────────────────────────────────
 import {
   to = aws_s3_bucket.tfstate
-  id = "shopverse-tfstate"
+  id = "shopverse-tfstate-your-account-id"
 }
 
 # Add more imports as needed based on what exists:
@@ -322,7 +323,7 @@ sed -i '/^import {/,/^}/d' main.tf  # Or manually edit and delete them
 cat > backend.tf <<'EOF'
 terraform {
   backend "s3" {
-    bucket       = "shopverse-tfstate"
+    bucket       = "shopverse-tfstate-your-account-id"
     key          = "bootstrap/terraform.tfstate"
     region       = "us-east-1"
     use_lockfile = true

@@ -87,14 +87,14 @@ data "aws_iam_openid_connect_provider" "github" {
 # S3 State Bucket
 # ──────────────────────────────────────────────
 resource "aws_s3_bucket" "tfstate" {
-  bucket = "${var.project_name}-tfstate"
+  bucket = "${var.project_name}-tfstate-${data.aws_caller_identity.current.account_id}"
 
   lifecycle {
     prevent_destroy = true
   }
 
   tags = merge(var.tags, {
-    Name = "${var.project_name}-tfstate"
+    Name = "${var.project_name}-tfstate-${data.aws_caller_identity.current.account_id}"
   })
 }
 
@@ -467,7 +467,7 @@ terraform apply -var-file="terraform.tfvars"
 cat > backend.tf <<'EOF'
 terraform {
   backend "s3" {
-    bucket       = "shopverse-tfstate"
+    bucket       = "shopverse-tfstate-<your-account-id>"
     key          = "bootstrap/terraform.tfstate"
     region       = "us-east-1"
     use_lockfile = true
@@ -484,7 +484,7 @@ rm -f terraform.tfstate terraform.tfstate.backup
 rm -rf .terraform .terraform.lock.hcl
 
 # 8. Verify state is in S3
-aws s3 ls s3://shopverse-tfstate/bootstrap/
+aws s3 ls s3://shopverse-tfstate-<your-account-id>/bootstrap/
 ```
 
 ---
