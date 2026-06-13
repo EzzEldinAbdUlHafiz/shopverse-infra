@@ -29,7 +29,8 @@ jobs:
           terraform_version: ">= 1.10.0"
 
       - name: Terraform Init
-        run: terraform -chdir=terraform init -reconfigure -backend-config="bucket=shopverse-tfstate-${{ vars.AWS_ACCOUNT_ID }}"
+        run: |
+          terraform -chdir=terraform init -reconfigure             -backend-config="bucket=shopverse-tfstate-${{ vars.AWS_ACCOUNT_ID }}"             -backend-config="key=main/terraform.tfstate"             -backend-config="region=${{ vars.AWS_REGION }}"             -backend-config="use_lockfile=true"
 
       - name: Terraform Plan
         run: terraform -chdir=terraform plan -var-file="github-ci.tfvars" -out=tfplan
@@ -87,23 +88,11 @@ jobs:
             # kubeconfig
             aws eks update-kubeconfig --region ${{ vars.AWS_REGION }} --name ${{ vars.PROJECT_NAME }}-cluster
 
-            echo "Checking Helm chart versions..."
-            helm repo add grafana https://grafana.github.io/helm-charts
-            helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-            echo "--- grafana/loki ---"
-            helm search repo grafana/loki --versions | head -n 5
-            echo "--- grafana/promtail ---"
-            helm search repo grafana/promtail --versions | head -n 5
-            echo "--- prometheus-community/kube-prometheus-stack ---"
-            helm search repo prometheus-community/kube-prometheus-stack --versions | head -n 5
-            echo "--- argo/argo-cd ---"
-            helm search repo argo/argo-cd --versions | head -n 5
-
             # Clone repo and install Ansible collections
             rm -rf /tmp/shopverse-infra
             git clone --depth 1 https://github.com/${{ github.repository }}.git /tmp/shopverse-infra
             cd /tmp/shopverse-infra
             ansible-galaxy collection install -r ansible/requirements.yml
 
-            # Run Ansible playbook (ArgoCD + Monitoring + Logging)
+            # Run Ansible playbook (ArgoCD + Monitoring only)
             ansible-playbook -i localhost, ansible/site.yml
