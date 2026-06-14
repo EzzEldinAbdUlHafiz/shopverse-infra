@@ -21,7 +21,7 @@
     kubeconfig: "{{ eks_kubeconfig }}"
     state: present
     wait: true
-    timeout: 600s
+    wait_timeout: 600s
     values:
       grafana:
         enabled: true
@@ -45,3 +45,4 @@
     grafana_deployment.resources[0].status.readyReplicas >= 1
   retries: 20
   delay: 15
+

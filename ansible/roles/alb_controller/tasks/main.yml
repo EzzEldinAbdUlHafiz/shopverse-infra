@@ -13,8 +13,7 @@
     kubeconfig: "{{ eks_kubeconfig }}"
     state: present
     wait: true
-    timeout: 300s
-    disable_openapi_validation: true
+    wait_timeout: 300s
     values:
       clusterName: "{{ eks_cluster_name }}"
       region: "{{ aws_region }}"
@@ -38,3 +37,4 @@
     alb_deployment.resources[0].status.readyReplicas >= 1
   retries: 20
   delay: 15
+

@@ -32,7 +32,7 @@
     kubeconfig: "{{ eks_kubeconfig }}"
     state: present
     wait: true
-    timeout: 300s
+    wait_timeout: 300s
 
 - name: Wait for ArgoCD server deployment to be ready
   kubernetes.core.k8s_info:
@@ -47,3 +47,4 @@
     argocd_deployment.resources[0].status.readyReplicas >= 1
   retries: 20
   delay: 15
+

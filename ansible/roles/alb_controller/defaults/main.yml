@@ -4,3 +4,4 @@ eks_cluster_name: "shopverse-cluster"
 eks_kubeconfig: "/home/ubuntu/.kube/config"
 vpc_id: ""
 alb_controller_role_arn: ""
+
