@@ -8,4 +8,3 @@ node_instance_type = "m7i-flex.large"
 node_desired_size  = 2
 node_min_size      = 1
 node_max_size      = 4
-jwt_secret         = "shopverse-jwt-secret-key-2024"
