@@ -2,8 +2,9 @@
 - name: Install Platform Services on EKS
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   roles:
+    - alb_controller
     - argocd
     - monitoring

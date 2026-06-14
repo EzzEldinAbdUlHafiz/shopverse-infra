@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       bastion_ip: ${{ steps.bastion.outputs.ip }}
+      vpc_id: ${{ steps.tf_outputs.outputs.vpc_id }}
+      alb_role_arn: ${{ steps.tf_outputs.outputs.alb_role_arn }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,7 +32,11 @@ jobs:
 
       - name: Terraform Init
         run: |
-          terraform -chdir=terraform init -reconfigure             -backend-config="bucket=shopverse-tfstate-${{ vars.AWS_ACCOUNT_ID }}"             -backend-config="key=main/terraform.tfstate"             -backend-config="region=${{ vars.AWS_REGION }}"             -backend-config="use_lockfile=true"
+          terraform -chdir=terraform init -reconfigure \
+            -backend-config="bucket=shopverse-tfstate-${{ vars.AWS_ACCOUNT_ID }}" \
+            -backend-config="key=main/terraform.tfstate" \
+            -backend-config="region=${{ vars.AWS_REGION }}" \
+            -backend-config="use_lockfile=true"
 
       - name: Terraform Plan
         run: terraform -chdir=terraform plan -var-file="github-ci.tfvars" -out=tfplan
@@ -38,10 +44,19 @@ jobs:
       - name: Terraform Apply
         run: terraform -chdir=terraform apply -auto-approve tfplan
 
+      - name: Get Terraform outputs
+        id: tf_outputs
+        run: |
+          echo "vpc_id=$(terraform -chdir=terraform output -raw vpc_id)" >> $GITHUB_OUTPUT
+          echo "alb_role_arn=$(terraform -chdir=terraform output -raw alb_controller_role_arn)" >> $GITHUB_OUTPUT
+
       - name: Get Bastion IP
         id: bastion
         run: |
-          BASTION_IP=$(aws ec2 describe-instances             --filters "Name=tag:Name,Values=${{ vars.PROJECT_NAME }}-bastion" "Name=instance-state-name,Values=running"             --query "Reservations[0].Instances[0].PublicIpAddress"             --output text)
+          BASTION_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=${{ vars.PROJECT_NAME }}-bastion" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].PublicIpAddress" \
+            --output text)
           echo "ip=$BASTION_IP" >> $GITHUB_OUTPUT
 
   deploy:
@@ -62,6 +77,7 @@ jobs:
           host: ${{ needs.terraform.outputs.bastion_ip }}
           username: ubuntu
           key: ${{ secrets.BASTION_SSH_KEY }}
+          envs: AWS_REGION,PROJECT_NAME,VPC_ID,ALB_ROLE_ARN
           script: |
             set -e
             sudo apt-get update
@@ -76,17 +92,21 @@ jobs:
 
             # kubectl
             KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
-            sudo curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl
+            sudo curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" \
+              -o /usr/local/bin/kubectl
             sudo chmod +x /usr/local/bin/kubectl
 
             # helm
             curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | sudo bash
 
             # ansible + kubernetes client
-            sudo pip3 install --break-system-packages --ignore-installed ansible ansible-core kubernetes
+            sudo pip3 install --break-system-packages --ignore-installed \
+              ansible ansible-core kubernetes
 
             # kubeconfig
-            aws eks update-kubeconfig --region ${{ vars.AWS_REGION }} --name ${{ vars.PROJECT_NAME }}-cluster
+            aws eks update-kubeconfig \
+              --region "$AWS_REGION" \
+              --name "${PROJECT_NAME}-cluster"
 
             # Clone repo and install Ansible collections
             rm -rf /tmp/shopverse-infra
@@ -94,5 +114,14 @@ jobs:
             cd /tmp/shopverse-infra
             ansible-galaxy collection install -r ansible/requirements.yml
 
-            # Run Ansible playbook (ArgoCD + Monitoring only)
-            ansible-playbook -i localhost, ansible/site.yml
+            # Run Ansible playbook
+            ansible-playbook -i localhost, ansible/site.yml \
+              -e "vpc_id=${VPC_ID}" \
+              -e "cluster_name=${PROJECT_NAME}-cluster" \
+              -e "aws_region=${AWS_REGION}" \
+              -e "alb_controller_role_arn=${ALB_ROLE_ARN}"
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+          VPC_ID: ${{ needs.terraform.outputs.vpc_id }}
+          ALB_ROLE_ARN: ${{ needs.terraform.outputs.alb_role_arn }}
