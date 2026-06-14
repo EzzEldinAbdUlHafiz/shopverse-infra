@@ -1,0 +1,65 @@
+# ──────────────────────────────────────────────
+# Node / frontend build artifacts
+# ──────────────────────────────────────────────
+node_modules/
+dist/
+build/
+
+# ──────────────────────────────────────────────
+# Environment & secrets
+# ──────────────────────────────────────────────
+.env
+.env.*
+.secrets
+*.pem
+shopverse.pem
+
+# ──────────────────────────────────────────────
+# Terraform — state, cache, generated backend
+# ──────────────────────────────────────────────
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+*.tfstate.*.backup
+*.tfvars
+!*.tfvars.example
+!github-ci.tfvars
+!jenkins-ci.tfvars
+crash.log
+crash.*.log
+terraform/bootstrap/backend.tf
+
+# ──────────────────────────────────────────────
+# Ansible / Kubernetes local artifacts
+# ──────────────────────────────────────────────
+.ansible/
+kubeconfig/
+*.kubeconfig
+kubeconfig.yaml
+eks-config.yaml
+ansible/kubeconfig/*.yaml
+ansible/kubeconfig/*.yml
+
+# ──────────────────────────────────────────────
+# OS / Editor / Personal
+# ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ──────────────────────────────────────────────
+# Local bootstrap artifacts (explicit paths)
+# ──────────────────────────────────────────────
+terraform/bootstrap/.terraform/
+terraform/bootstrap/.terraform.lock.hcl
+terraform/bootstrap/terraform.tfstate
+terraform/bootstrap/terraform.tfstate.backup
+terraform/bootstrap/terraform.tfstate.*.backup
+terraform/bootstrap/backend.tf
+terraform/bootstrap/crash.log
+terraform/bootstrap/crash.*.log

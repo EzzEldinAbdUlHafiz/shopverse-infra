@@ -1,0 +1,20 @@
+project_name      = "shopverse"
+aws_region        = "us-east-1"
+vpc_cidr          = "10.0.0.0/16"
+ecr_repos         = ["frontend", "backend"]
+github_org        = "EzzEldinAbdUlHafiz"
+github_repo_infra = "shopverse-infra"
+github_repo_app   = "shopverse-app"
+github_repo_gitops = "shopverse-gitops"
+github_branch     = "main"
+
+bastion_instance_type = "t3.micro"
+bastion_ami_id      = "ami-05cf1e9f73fbad2e2"
+ssh_key_name        = "shopverse"
+bastion_allowed_ssh_cidrs = ["0.0.0.0/0"]  # Change to your IP/32
+
+tags = {
+  Project     = "shopverse"
+  Environment = "bootstrap"
+  ManagedBy   = "terraform"
+}

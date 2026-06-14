@@ -1,0 +1,40 @@
+---
+- name: Add AWS EKS Helm repository
+  kubernetes.core.helm_repository:
+    name: eks
+    repo_url: https://aws.github.io/eks-charts
+    kubeconfig: "{{ eks_kubeconfig }}"
+
+- name: Install AWS Load Balancer Controller
+  kubernetes.core.helm:
+    name: aws-load-balancer-controller
+    chart_ref: eks/aws-load-balancer-controller
+    release_namespace: kube-system
+    kubeconfig: "{{ eks_kubeconfig }}"
+    state: present
+    wait: true
+    wait_timeout: 300s
+    values:
+      clusterName: "{{ eks_cluster_name }}"
+      region: "{{ aws_region }}"
+      vpcId: "{{ vpc_id }}"
+      serviceAccount:
+        create: true
+        name: aws-load-balancer-controller
+        annotations:
+          eks.amazonaws.com/role-arn: "{{ alb_controller_role_arn }}"
+
+- name: Wait for ALB Controller deployment to be ready
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: aws-load-balancer-controller
+    namespace: kube-system
+    kubeconfig: "{{ eks_kubeconfig }}"
+  register: alb_deployment
+  until: >
+    alb_deployment.resources | length > 0 and
+    alb_deployment.resources[0].status.readyReplicas is defined and
+    alb_deployment.resources[0].status.readyReplicas >= 1
+  retries: 20
+  delay: 15
+

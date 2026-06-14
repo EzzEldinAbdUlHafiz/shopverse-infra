@@ -1,0 +1,9 @@
+---
+argocd_version: "v3.4.3"
+aws_region: "us-east-1"
+eks_cluster_name: "shopverse-cluster"
+# This role runs on the jump server (per site.yml), so the kubeconfig path
+# must be a location on the jump server, not relative to playbook_dir on the
+# runner. Use a fixed path under ubuntu's home; the k8s module, kubectl apply,
+# and k8s_info tasks below all read from this same file.
+eks_kubeconfig: "/home/ubuntu/.kube/config"
