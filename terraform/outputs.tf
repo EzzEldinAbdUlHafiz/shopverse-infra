@@ -79,34 +79,3 @@ output "kubeconfig_command" {
   description = "Command to configure kubectl"
   value       = "aws eks update-kubeconfig --name ${module.eks.cluster_name} --region ${var.aws_region}"
 }
-
-# ──────────────────────────────────────────────
-# RDS
-# ──────────────────────────────────────────────
-output "db_endpoint" {
-  description = "RDS database endpoint"
-  value       = module.rds.db_endpoint
-}
-
-output "db_name" {
-  description = "RDS database name"
-  value       = var.db_name
-}
-
-output "db_username" {
-  description = "RDS database username"
-  value       = var.db_username
-}
-
-# ──────────────────────────────────────────────
-# Secrets Manager
-# ──────────────────────────────────────────────
-output "db_credentials_secret_arn" {
-  description = "ARN of the DB credentials secret in Secrets Manager"
-  value       = aws_secretsmanager_secret.db_credentials.arn
-}
-
-output "jwt_secret_arn" {
-  description = "ARN of the JWT secret in Secrets Manager"
-  value       = aws_secretsmanager_secret.jwt_secret.arn
-}
