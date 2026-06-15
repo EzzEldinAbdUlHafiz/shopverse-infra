@@ -49,6 +49,7 @@ jobs:
       - name: Get Terraform outputs
         id: tf_outputs
         run: |
+          set -euo pipefail
           echo "vpc_id=$(terraform -chdir=terraform output -raw vpc_id)" >> $GITHUB_OUTPUT
           echo "alb_role_arn=$(terraform -chdir=terraform output -raw alb_controller_role_arn)" >> $GITHUB_OUTPUT
           echo "node_group_role_name=$(terraform -chdir=terraform output -raw node_group_role_name)" >> $GITHUB_OUTPUT
