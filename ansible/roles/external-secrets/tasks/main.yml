@@ -1,25 +1,31 @@
 ---
+- name: Check if External Secrets Operator release exists
+  shell: |
+    helm list -n external-secrets -q | grep -q '^external-secrets$'
+  register: eso_exists
+  ignore_errors: true
+  changed_when: false
+
 - name: Add External Secrets Operator Helm repository
   kubernetes.core.helm_repository:
     name: external-secrets
     repo_url: https://charts.external-secrets.io
     state: present
+  when: eso_exists.rc != 0
 
-- name: Install External Secrets Operator (with CRDs)
+- name: Install External Secrets Operator
   kubernetes.core.helm:
     name: external-secrets
     chart_ref: external-secrets/external-secrets
-    chart_version: "0.10.4"
     release_namespace: external-secrets
     create_namespace: true
     wait: true
-    timeout: 600s
-    # The chart ships the CRDs under templates/ and installs them by default
-    # (crds.install=true since v0.10.0). Installing the release also registers
-    # ClusterSecretStore and friends, so we don't need a separate kubectl apply.
+    timeout: 300s
     values:
+      crds:
+        create: true
       replicaCount: 1
-      installCRDs: true
+  when: eso_exists.rc != 0
 
 - name: Wait for External Secrets Operator deployment to be ready
   kubernetes.core.k8s_info:
@@ -31,6 +37,15 @@
   until: eso_deployment.resources | length > 0 and eso_deployment.resources[0].status.readyReplicas | default(0) > 0
   retries: 12
   delay: 10
+
+- name: Wait for ClusterSecretStore CRD to be registered
+  shell: |
+    kubectl get crd clustersecretstores.external-secrets.io
+  register: crd_check
+  until: crd_check.rc == 0
+  retries: 20
+  delay: 5
+  ignore_errors: false
 
 - name: Apply ClusterSecretStore manifest via kubectl
   shell: |
