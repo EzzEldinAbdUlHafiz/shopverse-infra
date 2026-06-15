@@ -87,28 +87,36 @@ jobs:
           envs: AWS_REGION,PROJECT_NAME,VPC_ID,ALB_ROLE_ARN,ESO_IRSA_ROLE_ARN
           script: |
             set -e
-            sudo apt-get update
-            sudo apt-get install -y curl wget unzip jq git python3-pip python3-venv
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq curl wget unzip jq git python3-pip python3-venv
 
-            # AWS CLI v2
+            # AWS CLI v2 (skip if already installed)
             if ! command -v aws &> /dev/null; then
+              rm -f /tmp/awscliv2.zip
               curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
               unzip -o /tmp/awscliv2.zip -d /tmp/
               sudo /tmp/aws/install --update
             fi
 
-            # kubectl
-            KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
-            sudo curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" \
-              -o /usr/local/bin/kubectl
-            sudo chmod +x /usr/local/bin/kubectl
+            # kubectl (skip if already installed)
+            if ! command -v kubectl &> /dev/null; then
+              KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+              rm -f /tmp/kubectl
+              sudo curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" \
+                -o /usr/local/bin/kubectl
+              sudo chmod +x /usr/local/bin/kubectl
+            fi
 
-            # helm
-            curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | sudo bash
+            # helm (skip if already installed)
+            if ! command -v helm &> /dev/null; then
+              curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | sudo bash
+            fi
 
-            # ansible + kubernetes client
-            sudo pip3 install --break-system-packages --ignore-installed \
-              ansible ansible-core kubernetes
+            # ansible + kubernetes client (skip if already installed)
+            if ! command -v ansible-playbook &> /dev/null; then
+              sudo pip3 install --break-system-packages --ignore-installed \
+                ansible ansible-core kubernetes
+            fi
 
             # kubeconfig
             aws eks update-kubeconfig \
