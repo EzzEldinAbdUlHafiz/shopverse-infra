@@ -46,6 +46,9 @@ jobs:
       - name: Terraform Apply
         run: terraform -chdir=terraform apply -auto-approve tfplan
 
+      - name: Terraform Refresh
+        run: terraform -chdir=terraform refresh -var-file="github-ci.tfvars"
+
       - name: Get Terraform outputs
         id: tf_outputs
         run: |
