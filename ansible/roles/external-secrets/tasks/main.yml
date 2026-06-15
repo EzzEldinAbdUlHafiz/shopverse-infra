@@ -5,33 +5,20 @@
     repo_url: https://charts.external-secrets.io
     state: present
 
-- name: Install External Secrets Operator CRDs
-  shell: |
-    kubectl apply -f https://raw.githubusercontent.com/external-secrets/external-secrets/main/deploy/crds/bundle.yaml
-  register: crd_install
-  until: crd_install.rc == 0
-  retries: 3
-  delay: 5
-
-- name: Wait for ClusterSecretStore CRD to be registered
-  shell: |
-    kubectl get crd clustersecretstores.external-secrets.io
-  register: crd_check
-  until: crd_check.rc == 0
-  retries: 20
-  delay: 5
-  ignore_errors: false
-
-- name: Install External Secrets Operator
+- name: Update External Secrets Operator Helm repository
   kubernetes.core.helm:
     name: external-secrets
     chart_ref: external-secrets/external-secrets
     release_namespace: external-secrets
     create_namespace: true
     wait: true
-    timeout: 300s
+    timeout: 600s
+    # The chart ships the CRDs under templates/ and installs them by default
+    # (crds.install=true since v0.10.0). Installing the release also registers
+    # ClusterSecretStore and friends, so we don't need a separate kubectl apply.
     values:
       replicaCount: 1
+      installCRDs: true
 
 - name: Wait for External Secrets Operator deployment to be ready
   kubernetes.core.k8s_info:
