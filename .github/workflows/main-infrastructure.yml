@@ -19,6 +19,7 @@ jobs:
       bastion_ip: ${{ steps.bastion.outputs.ip }}
       vpc_id: ${{ steps.tf_outputs.outputs.vpc_id }}
       alb_role_arn: ${{ steps.tf_outputs.outputs.alb_role_arn }}
+      node_group_role_name: ${{ steps.tf_outputs.outputs.node_group_role_name }}
     steps:
       - uses: actions/checkout@v4
 
@@ -50,6 +51,28 @@ jobs:
         run: |
           echo "vpc_id=$(terraform -chdir=terraform output -raw vpc_id)" >> $GITHUB_OUTPUT
           echo "alb_role_arn=$(terraform -chdir=terraform output -raw alb_controller_role_arn)" >> $GITHUB_OUTPUT
+          echo "node_group_role_name=$(terraform -chdir=terraform output -raw node_group_role_name)" >> $GITHUB_OUTPUT
+
+      - name: Attach External Secrets IAM Policy to Node Role
+        run: |
+          aws iam put-role-policy \
+            --role-name ${{ steps.tf_outputs.outputs.node_group_role_name }} \
+            --policy-name external-secrets-policy \
+            --policy-document '{
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "secretsmanager:GetSecretValue",
+                    "secretsmanager:DescribeSecret"
+                  ],
+                  "Resource": [
+                    "arn:aws:secretsmanager:${{ vars.AWS_REGION }}:${{ vars.AWS_ACCOUNT_ID }}:secret:shopverse/*"
+                  ]
+                }
+              ]
+            }'
 
       - name: Get Bastion IP
         id: bastion

@@ -29,6 +29,11 @@ output "node_group_role_arn" {
   value       = aws_iam_role.nodes.arn
 }
 
+output "node_group_role_name" {
+  description = "IAM role name for the node group (used for policy attachment)"
+  value       = aws_iam_role.nodes.name
+}
+
 output "alb_controller_role_arn" {
   description = "IAM role ARN for the ALB controller"
   value       = aws_iam_role.alb_controller.arn
