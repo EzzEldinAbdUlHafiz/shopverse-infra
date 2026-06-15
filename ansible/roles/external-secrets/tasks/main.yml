@@ -5,10 +5,11 @@
     repo_url: https://charts.external-secrets.io
     state: present
 
-- name: Update External Secrets Operator Helm repository
+- name: Install External Secrets Operator (with CRDs)
   kubernetes.core.helm:
     name: external-secrets
     chart_ref: external-secrets/external-secrets
+    chart_version: "0.10.4"
     release_namespace: external-secrets
     create_namespace: true
     wait: true
