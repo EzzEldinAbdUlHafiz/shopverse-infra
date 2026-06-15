@@ -19,7 +19,7 @@ jobs:
       bastion_ip: ${{ steps.bastion.outputs.ip }}
       vpc_id: ${{ steps.tf_outputs.outputs.vpc_id }}
       alb_role_arn: ${{ steps.tf_outputs.outputs.alb_role_arn }}
-      node_group_role_name: ${{ steps.tf_outputs.outputs.node_group_role_name }}
+      eso_irsa_role_arn: ${{ steps.tf_outputs.outputs.eso_irsa_role_arn }}
     steps:
       - uses: actions/checkout@v4
 
@@ -55,28 +55,7 @@ jobs:
           set -euo pipefail
           echo "vpc_id=$(terraform -chdir=terraform output -raw vpc_id)" >> $GITHUB_OUTPUT
           echo "alb_role_arn=$(terraform -chdir=terraform output -raw alb_controller_role_arn)" >> $GITHUB_OUTPUT
-          echo "node_group_role_name=$(terraform -chdir=terraform output -raw node_group_role_name)" >> $GITHUB_OUTPUT
-
-      - name: Attach External Secrets IAM Policy to Node Role
-        run: |
-          aws iam put-role-policy \
-            --role-name ${{ steps.tf_outputs.outputs.node_group_role_name }} \
-            --policy-name external-secrets-policy \
-            --policy-document '{
-              "Version": "2012-10-17",
-              "Statement": [
-                {
-                  "Effect": "Allow",
-                  "Action": [
-                    "secretsmanager:GetSecretValue",
-                    "secretsmanager:DescribeSecret"
-                  ],
-                  "Resource": [
-                    "arn:aws:secretsmanager:${{ vars.AWS_REGION }}:${{ vars.AWS_ACCOUNT_ID }}:secret:shopverse/*"
-                  ]
-                }
-              ]
-            }'
+          echo "eso_irsa_role_arn=$(terraform -chdir=terraform output -raw eso_irsa_role_arn)" >> $GITHUB_OUTPUT
 
       - name: Get Bastion IP
         id: bastion
@@ -105,7 +84,7 @@ jobs:
           host: ${{ needs.terraform.outputs.bastion_ip }}
           username: ubuntu
           key: ${{ secrets.BASTION_SSH_KEY }}
-          envs: AWS_REGION,PROJECT_NAME,VPC_ID,ALB_ROLE_ARN
+          envs: AWS_REGION,PROJECT_NAME,VPC_ID,ALB_ROLE_ARN,ESO_IRSA_ROLE_ARN
           script: |
             set -e
             sudo apt-get update
@@ -147,9 +126,11 @@ jobs:
               -e "vpc_id=${VPC_ID}" \
               -e "cluster_name=${PROJECT_NAME}-cluster" \
               -e "aws_region=${AWS_REGION}" \
-              -e "alb_controller_role_arn=${ALB_ROLE_ARN}"
+              -e "alb_controller_role_arn=${ALB_ROLE_ARN}" \
+              -e "eso_irsa_role_arn=${ESO_IRSA_ROLE_ARN}"
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
           PROJECT_NAME: ${{ vars.PROJECT_NAME }}
           VPC_ID: ${{ needs.terraform.outputs.vpc_id }}
           ALB_ROLE_ARN: ${{ needs.terraform.outputs.alb_role_arn }}
+          ESO_IRSA_ROLE_ARN: ${{ needs.terraform.outputs.eso_irsa_role_arn }}
