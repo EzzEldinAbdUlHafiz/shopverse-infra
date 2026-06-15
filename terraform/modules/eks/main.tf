@@ -275,3 +275,47 @@ resource "aws_iam_role_policy" "eso_irsa" {
     }]
   })
 }
+
+# ──────────────────────────────────────────────
+# ALB Controller EC2 Security Group Policy
+# (Required for creating ALB security groups)
+# ──────────────────────────────────────────────
+resource "aws_iam_role_policy" "alb_controller_ec2" {
+  name = "${var.cluster_name}-alb-controller-ec2"
+  role = aws_iam_role.alb_controller.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:CreateSecurityGroup",
+          "ec2:DeleteSecurityGroup",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeSecurityGroupRules",
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupEgress",
+          "ec2:CreateTags",
+          "ec2:DeleteTags",
+          "ec2:DescribeTags",
+          "ec2:DescribeVpcs",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeInstances",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DescribeInternetGateways",
+          "ec2:DescribeAccountAttributes",
+          "ec2:ModifyNetworkInterfaceAttribute",
+          "ec2:DescribeAddresses",
+          "ec2:AllocateAddress",
+          "ec2:ReleaseAddress",
+          "ec2:AssociateAddress",
+          "ec2:DisassociateAddress"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
