@@ -53,3 +53,8 @@ output "oidc_provider_url" {
   description = "OIDC provider URL"
   value       = aws_eks_cluster.this.identity[0].oidc[0].issuer
 }
+
+output "eso_irsa_role_arn" {
+  description = "IAM role ARN for External Secrets Operator (IRSA)"
+  value       = aws_iam_role.eso_irsa.arn
+}

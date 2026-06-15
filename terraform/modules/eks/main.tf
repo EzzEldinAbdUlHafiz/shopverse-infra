@@ -232,3 +232,46 @@ resource "aws_eks_addon" "ebs_csi" {
 
   tags = var.tags
 }
+
+# ──────────────────────────────────────────────
+# External Secrets Operator IAM Role (IRSA)
+# ──────────────────────────────────────────────
+resource "aws_iam_role" "eso_irsa" {
+  name = "${var.cluster_name}-eso-irsa"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Federated = aws_iam_openid_connect_provider.eks.arn
+      }
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}:sub" = "system:serviceaccount:external-secrets:external-secrets"
+          "${replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")}:aud" = "sts.amazonaws.com"
+        }
+      }
+    }]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy" "eso_irsa" {
+  name = "external-secrets-secrets-manager"
+  role = aws_iam_role.eso_irsa.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret"
+      ]
+      Resource = "arn:aws:secretsmanager:*:*:secret:shopverse/*"
+    }]
+  })
+}

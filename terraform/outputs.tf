@@ -79,3 +79,8 @@ output "kubeconfig_command" {
   description = "Command to configure kubectl"
   value       = "aws eks update-kubeconfig --name ${module.eks.cluster_name} --region ${var.aws_region}"
 }
+
+output "eso_irsa_role_arn" {
+  description = "IAM role ARN for External Secrets Operator (IRSA)"
+  value       = module.eks.eso_irsa_role_arn
+}

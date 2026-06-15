@@ -6,6 +6,5 @@
 
   roles:
     - alb_controller
-    - external-secrets
     - argocd
     - monitoring
