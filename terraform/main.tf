@@ -131,6 +131,7 @@ resource "aws_security_group_rule" "rds_eks_ingress" {
 resource "aws_secretsmanager_secret" "db_credentials" {
   name        = "shopverse/db-credentials"
   description = "RDS credentials for shopverse application"
+  recovery_window_in_days = 0  # Force delete immediately on destroy
 
   tags = local.common_tags
 }
@@ -147,6 +148,7 @@ resource "aws_secretsmanager_secret_version" "db_credentials" {
 resource "aws_secretsmanager_secret" "jwt_secret" {
   name        = "shopverse/jwt-secret"
   description = "JWT signing key for shopverse"
+  recovery_window_in_days = 0  # Force delete immediately on destroy
 
   tags = local.common_tags
 }
