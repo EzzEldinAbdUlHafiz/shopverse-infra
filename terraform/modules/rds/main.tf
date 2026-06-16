@@ -49,11 +49,11 @@ resource "aws_db_instance" "this" {
   # Performance & Cost
   multi_az            = true
   publicly_accessible = false
-  skip_final_snapshot = true
   storage_encrypted   = true
 
-  # Backup policy (RDS basic)
-  backup_retention_period = 1
+  # Backup policy
+  backup_retention_period = 14
+  skip_final_snapshot     = false
   backup_window           = "03:00-04:00"
 
   tags = merge(var.tags, {
