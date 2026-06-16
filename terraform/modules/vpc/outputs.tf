@@ -18,6 +18,16 @@ output "private_subnet_ids" {
   value       = aws_subnet.private[*].id
 }
 
+output "private_app_subnet_ids" {
+  description = "List of private app subnet IDs (for EKS nodes)"
+  value       = aws_subnet.private_app[*].id
+}
+
+output "private_data_subnet_ids" {
+  description = "List of private data subnet IDs (for RDS)"
+  value       = aws_subnet.private_data[*].id
+}
+
 output "internet_gateway_id" {
   description = "Internet Gateway ID"
   value       = var.existing_vpc_id == null ? aws_internet_gateway.this[0].id : null
