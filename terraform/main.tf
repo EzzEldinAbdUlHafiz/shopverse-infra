@@ -101,9 +101,9 @@ resource "aws_security_group_rule" "eks_from_bastion" {
 module "rds" {
   source = "./modules/rds"
 
-  name               = "${var.project_name}-db"
+  name            = "${var.project_name}-db"
   vpc_id             = module.vpc.vpc_id
-  private_subnet_ids = module.vpc.private_subnet_ids
+  private_data_subnet_ids = module.vpc.private_data_subnet_ids
   db_username        = var.db_username
   db_password        = var.db_password
   db_name            = var.db_name

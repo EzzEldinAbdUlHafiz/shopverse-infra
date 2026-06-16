@@ -71,22 +71,7 @@ resource "aws_subnet" "private" {
   })
 }
 
-# ──────────────────────────────────────────────
-# Private App Subnets (for EKS nodes)
-# ──────────────────────────────────────────────
-resource "aws_subnet" "private_app" {
-  count = length(local.azs)
 
-  vpc_id            = local.vpc_id
-  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 64)
-  availability_zone = local.azs[count.index]
-
-  tags = merge(var.tags, {
-    Name                                        = "${var.name}-private-app-${local.azs[count.index]}"
-    "kubernetes.io/role/internal-elb"           = "1"
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-  })
-}
 
 # ──────────────────────────────────────────────
 # Private Data Subnets (for RDS)
@@ -184,13 +169,6 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
-resource "aws_route_table_association" "private_app" {
-  count = length(local.azs)
-
-  subnet_id      = aws_subnet.private_app[count.index].id
-  route_table_id = aws_route_table.private.id
-}
-
 resource "aws_route_table_association" "private_data" {
   count = length(local.azs)
 
@@ -260,7 +238,7 @@ resource "aws_vpc_endpoint" "interface" {
   service_name       = "com.amazonaws.${var.aws_region}.${each.key}"
   vpc_endpoint_type  = "Interface"
 
-  subnet_ids         = concat(aws_subnet.private[*].id, aws_subnet.private_app[*].id, aws_subnet.private_data[*].id)
+  subnet_ids = aws_subnet.private[*].id
   security_group_ids = [aws_security_group.vpc_endpoints.id]
   private_dns_enabled = true
 
