@@ -84,3 +84,8 @@ output "eso_irsa_role_arn" {
   description = "IAM role ARN for External Secrets Operator (IRSA)"
   value       = module.eks.eso_irsa_role_arn
 }
+
+output "rds_endpoint" {
+  description = "RDS MySQL endpoint"
+  value       = module.rds.rds_endpoint
+}
