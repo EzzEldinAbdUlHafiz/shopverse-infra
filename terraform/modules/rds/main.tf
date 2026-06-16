@@ -52,8 +52,10 @@ resource "aws_db_instance" "this" {
   storage_encrypted   = true
 
   # Backup policy
-  backup_retention_period = 14
-  skip_final_snapshot     = false
+  # For production: set backup_retention_period = 7-35, skip_final_snapshot = false
+  # skip_final_snapshot = false creates a final snapshot on destroy for data protection
+  backup_retention_period = 1
+  skip_final_snapshot     = true
   backup_window           = "03:00-04:00"
 
   tags = merge(var.tags, {
