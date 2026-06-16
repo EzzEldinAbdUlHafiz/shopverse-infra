@@ -2,7 +2,7 @@
 # DB Subnet Group
 # ──────────────────────────────────────────────
 resource "aws_db_subnet_group" "this" {
-  name       = "${var.name}-subnet-group-v2"
+  name       = "${var.name}-subnet-group"
   subnet_ids = var.private_data_subnet_ids
 
   tags = merge(var.tags, {
