@@ -53,22 +53,6 @@ jobs:
             -backend-config="region=${{ vars.AWS_REGION }}" \
             -backend-config="use_lockfile=true"
 
-      - name: Force Unlock State (if stale lock exists)
-        run: |
-          LOCK_ID=$(aws s3api get-object \
-            --bucket shopverse-tfstate-${{ vars.AWS_ACCOUNT_ID }} \
-            --key main/terraform.tfstate.tflock \
-            /tmp/lockfile 2>/dev/null && \
-            python3 -c "import json; print(json.load(open('/tmp/lockfile'))['ID'])" 2>/dev/null || echo "")
-
-          if [ -n "$LOCK_ID" ]; then
-            echo "Stale lock found: $LOCK_ID — force unlocking..."
-            terraform -chdir=terraform force-unlock -force "$LOCK_ID"
-          else
-            echo "No stale lock found. Proceeding."
-          fi
-        continue-on-error: true
-
       - name: Terraform Plan (Destroy)
         run: terraform -chdir=terraform plan -destroy -var-file="github-ci.tfvars" -out=tfplan-destroy
 
