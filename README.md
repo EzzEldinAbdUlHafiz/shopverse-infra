@@ -2,6 +2,16 @@
 
 Infrastructure-as-Code for the ShopVerse e-commerce platform. Deploys a complete AWS infrastructure stack including VPC, EKS cluster, RDS, and GitOps platform services.
 
+## Related Repositories
+
+| Repository | Description |
+|---|---|
+| [ShopVerse App](https://github.com/EzzEldinAbdUlHafiz/shopverse-app) | React frontend and Go backend application |
+| [ShopVerse Kubernetes](https://github.com/EzzEldinAbdUlHafiz/shopverse-k8s) | Kubernetes manifests and application deployment configuration |
+| [ShopVerse Infrastructure](https://github.com/EzzEldinAbdUlHafiz/shopverse-infra) | AWS infrastructure provisioning and configuration using Terraform and Ansible |
+
+---
+
 ## Architecture Overview
 
 ```
